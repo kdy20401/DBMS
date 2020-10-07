@@ -1,0 +1,8 @@
+Project2 note
+
+unique table id(fd) : 0, 1, 2,,,
+in Project2, will only use one table, but more afterwards
+
+Q
+1. how to distinguish pages with same page number in different datafile?
+2. there are 4 types of pages but there is only one page struct

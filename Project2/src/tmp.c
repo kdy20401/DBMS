@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -9,22 +10,24 @@
 #include "file.h"
 #include "bpt.h"
 
+// initialize datafile
 void init_table(int fd)
 {
-    page_t p;
-    int header_page_num;
+    page_t * p;
+    header_page_t *hp;
 
-    header_page_num = file_alloc_page();
-    p.pagenum = header_page_num;
-    //initialize p's element..
-    
-    file_write_page(header_page_num, &p);
+    hp = (header_page_t *)malloc(sizeof(header_page_t));
+    hp->free_page_num = 0;
+    hp->root_page_num = 0;
+    hp->page_num = 1;
+
+    p = (page_t *)hp;
+
+    file_write_page(0, p);
 }
 
 int open_table(char * pathname)
 {
-    int fd;
-
     fd = open(pathname, O_RDWR | O_CREAT | O_EXCL, 0644);
 
     if(fd != -1)

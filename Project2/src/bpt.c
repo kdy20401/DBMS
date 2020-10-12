@@ -605,8 +605,8 @@ node * insert_into_leaf_after_splitting(node * root, node * leaf, int key, recor
 
     free(temp_pointers);
     free(temp_keys);
+    
     // until here, split leaf node into leaf node and new_leaf node
-
     new_leaf->pointers[order - 1] = leaf->pointers[order - 1];
     leaf->pointers[order - 1] = new_leaf;
 
@@ -629,7 +629,7 @@ node * insert_into_leaf_after_splitting(node * root, node * leaf, int key, recor
 node * insert_into_node(node * root, node * n, 
         int left_index, int key, node * right) {
     int i;
-
+    
     for (i = n->num_keys; i > left_index; i--) {
         n->pointers[i + 1] = n->pointers[i];
         n->keys[i] = n->keys[i - 1];

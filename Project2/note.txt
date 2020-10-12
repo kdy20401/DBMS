@@ -5,4 +5,12 @@ in Project2, will only use one table, but more afterwards
 
 Q
 1. how to distinguish pages with same page number in different datafile?
-2. there are 4 types of pages but there is only one page structure ->use type-casting 
+2. to use insert/delete/find, should open_table be called only once?
+3. there are 4 types of pages but there is only one page structure ->use type-casting
+4. how to handle a situation when the length of value is bigger than 120bytes?
+5. when passing argument, page number vs address of page 
+6. insert_into_node(), insert_into_node_after_splitting()'s first parameter -> parent?
+7. when insert key in parent, also insert pagenum!
+
+!
+O_SYNC , O_DIRECT

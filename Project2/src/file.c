@@ -101,37 +101,25 @@ pagenum_t file_alloc_page()
 // make pagenum page a free page
 void file_free_page(pagenum_t pagenum)
 {
-    page_t * tmp; //contains the page which will become a free page
-    header_page_t * head;
-    int first_free_page_num;
+    free_page_t tmp;
+    header_page_t header;
+    pagenum_t first_free_page_num;
 
-    tmp = (page_t *)malloc(sizeof(PAGE_SIZE));
-    if(tmp == NULL)
+    file_read_page(pagenum, (page_t *)&tmp);
+    file_read_page(0, (page_t *)&header);
+
+    // when try to free the page which have already been freed.
+    if(pagenum == header.free_page_num)
     {
-        printf("malloc() failed\n");
-        printf("file_free_page() failed\n");
-        exit(0);
-    }
-    head = (header_page_t *)malloc(sizeof(PAGE_SIZE));
-    if(head == NULL)
-    {
-        printf("malloc() failed\n");
-        printf("file_free_page() failed\n");
-        exit(0);
+        return;
     }
 
-    file_read_page(pagenum, tmp);
-    file_read_page(0, (page_t *)head);
+    first_free_page_num = header.free_page_num;
+    tmp.next_free_page_num = first_free_page_num; // garbage data will be overwritten
+    header.free_page_num = pagenum;
 
-    first_free_page_num = head->free_page_num;
-    ((free_page_t *)tmp)->next_free_page_num = first_free_page_num; // use memset for erasing garbage data?
-    head->free_page_num = pagenum;
-
-    file_write_page(0, (page_t *)head);
-    file_write_page(pagenum, tmp);
-    
-    free(tmp);
-    free(head);
+    file_write_page(0, (page_t *)&header);
+    file_write_page(pagenum, (page_t *)&tmp);
 }
 
 // load on-disk page information into in-memory page
@@ -139,11 +127,29 @@ void file_read_page(pagenum_t pagenum, page_t * dest)
 {
     int ret;
 
-    if((ret = pread(fd, dest, PAGE_SIZE, pagenum * PAGE_SIZE)) == -1)
+    ret = pread(fd, dest, PAGE_SIZE, pagenum * PAGE_SIZE);
+
+    if(ret == PAGE_SIZE)
+    {
+        return;
+    }
+    else if(ret == -1)
     {
         printf("pread() failed\n");
         printf("file_read_page() failed\n");
         printf("error: %s\n", strerror(errno));
+        exit(0);
+    }
+    else if(ret == 0)
+    {
+        printf("EOF\n");
+        printf("file_read_page() failed\n");
+        exit(0);
+    }
+    else
+    {
+        printf("read less or more than %d\n", PAGE_SIZE);
+        printf("file_read_page() failed\n");
         exit(0);
     }
 }
@@ -153,7 +159,14 @@ void file_write_page(pagenum_t pagenum, const page_t * src)
 {
     int ret;
 
-    if((ret = pwrite(fd, src, PAGE_SIZE, pagenum * PAGE_SIZE)) == -1)
+    ret = pwrite(fd, src, PAGE_SIZE, pagenum * PAGE_SIZE);
+
+    if(ret == PAGE_SIZE)
+    {
+        fsync(fd);
+        return;
+    }
+    else if(ret == -1)
     {
         printf("pwrite() failed\n");
         printf("file_write_page() failed\n");

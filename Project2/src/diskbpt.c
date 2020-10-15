@@ -14,7 +14,7 @@
 extern uint64_t fd; 
 /*
 new function
-int find_leaf_page(int key)
+int find_leaf_page(key key)
 void init_table(int fd)
 void close_table(void)
 
@@ -22,12 +22,64 @@ vo. enqueue(pagenum_t page_num)
 pagenum_t dequeue()
 int path_to_root(interna(internal_page_t *)l_page_t * root, internal_page_t * child)
 void print_tree(header_page_t * header)
-
-
 */
 
+
+void delete_entry(pagenum_t n, int64_t key);
 void insert_into_parent(internal_page_t * left, pagenum_t left_page_num, int key, internal_page_t * right, pagenum_t right_page_num);
 
+void show_leaf_page_keys()
+{
+    header_page_t header;
+    internal_page_t internal_page;
+    leaf_page_t leaf_page;
+    int i;
+    file_read_page(0, (page_t *)&header);
+    
+    if(header.root_page_num == 0)
+    {
+        printf("Empty tree.\n");
+        return ;
+    }
+
+    file_read_page(header.root_page_num, (page_t *)&internal_page);
+
+    if(!!internal_page.isLeaf)
+    {
+        file_read_page(header.root_page_num, (page_t *)&leaf_page);
+        for(i = 0; i < leaf_page.num_key; i++)
+        {
+            printf("%ld ", leaf_page.records[i].key);
+        }
+        return ;
+    }
+    else
+    {
+        pagenum_t next_page_num;
+
+        // find left most leaf page
+        while(internal_page.isLeaf != 1)
+        {
+            next_page_num = internal_page.leftmostdown_page_num;
+            file_read_page(next_page_num, (page_t *)&internal_page);
+        }
+
+        // until right sibling page doesn't exist, print keys and follow link
+        while(next_page_num != 0)
+        {
+            file_read_page(next_page_num, (page_t *)&leaf_page);
+            printf("page(%ld):", next_page_num);
+            for(i = 0; i < leaf_page.num_key; i++)
+            {
+                printf("%ld ", leaf_page.records[i].key);
+            }
+            printf("| ");
+            next_page_num = leaf_page.right_sibling_page_num;
+        }
+        return;
+    }
+    
+}
 void show_free_page_list()
 {
     header_page_t header;
@@ -113,6 +165,7 @@ int path_to_root(pagenum_t pagenum)
     {
         while(parent_page_num != 0)
         {
+            // printf("parent %ld\n", parent_page_num);
             file_read_page(parent_page_num, (page_t *)&internal);
             parent_page_num = internal.parent_page_num;
             length++;
@@ -146,11 +199,11 @@ void print_tree(header_page_t * header)
     while(queue != NULL)
     {
         n = dequeue();
-        
         file_read_page(n, (page_t *)&tmp);
 
         if(!!tmp.isLeaf) //leaf page -> read page again using leaf page struct
         {
+
             file_read_page(n, (page_t *)&tmp1); 
             if(tmp1.parent_page_num != 0)
             {
@@ -178,7 +231,7 @@ void print_tree(header_page_t * header)
             {
                 file_read_page(tmp.parent_page_num, (page_t *)&parent);
                 if(n == parent.leftmostdown_page_num)
-                {
+                {   
                     new_rank = path_to_root(tmp.parent_page_num);
                     if (new_rank != rank)
                     {
@@ -246,8 +299,8 @@ int open_table(char * pathname)
 
 // find a possible leaf page containing a key
 // if there is a possible leaf page, return the leaf page num
-// else if when there is a no page, return -1 
-pagenum_t find_leaf_page(int key)
+// else return -1 
+pagenum_t find_leaf_page(int64_t key)
 {   
     header_page_t header;
     internal_page_t root;
@@ -259,6 +312,7 @@ pagenum_t find_leaf_page(int key)
     // there is no root
     if(header.root_page_num == 0)
     {
+        printf("there is no root\n");
         return -1;
     }
 
@@ -351,9 +405,6 @@ void start_new_tree(int64_t key, char * value)
     file_write_page(root_page_num, (page_t *)&root);
     printf("root is written in page %ld\n", header.root_page_num);
     
-    //for test
-    header_page_t header1;
-    file_read_page(0, (page_t *)&header1);
 }
 
 void insert_into_leaf(pagenum_t leaf_page_num, int64_t key, char * value)
@@ -364,7 +415,7 @@ void insert_into_leaf(pagenum_t leaf_page_num, int64_t key, char * value)
     file_read_page(leaf_page_num, (page_t *)&leaf);
 
     printf("keys in the leaf :\n");
-    for(int i = 0; i < leaf.num_key; i++)
+    for(i = 0; i < leaf.num_key; i++)
     {
         printf("%ld ", leaf.records[i].key);
     }
@@ -423,6 +474,7 @@ void insert_into_node_after_splitting(internal_page_t * old, pagenum_t old_page_
     // split tmp in tmp[0~split-1], tmp[split], tmp[split+1 ~ 248]
     // as a result,     old          k_prime          new
 
+    // split = (n + 1) / 2
     // split = 249 / 2;
     split = 3 / 2;
     new.isLeaf = 0;
@@ -445,7 +497,7 @@ void insert_into_node_after_splitting(internal_page_t * old, pagenum_t old_page_
         new.num_key++;
     }
 
-    // change parent page number of new page's children pages
+    // change the parent_page_num of new page's children pages
     // because their parent changed from old to new
 
     pagenum_t tmp_page_num;
@@ -492,12 +544,13 @@ void insert_into_node(internal_page_t * left, pagenum_t left_index, int key, int
 
 // return the index of parent's record2[] which points to child page(left_page)
 // so in insert_into_node(), upcomming element should be inserted at (left_index + 1)
-int get_left_index(internal_page_t * left, pagenum_t left_page_num)
+int get_left_index(pagenum_t left_page_num)
 {
-    internal_page_t parent;
+    internal_page_t left, parent;
     int left_index;
 
-    file_read_page(left->parent_page_num, (page_t *)&parent);
+    file_read_page(left_page_num, (page_t *)&left);
+    file_read_page(left.parent_page_num, (page_t *)&parent);
     left_index = 0;
 
     if(left_page_num == parent.leftmostdown_page_num)
@@ -505,7 +558,7 @@ int get_left_index(internal_page_t * left, pagenum_t left_page_num)
         return -1;
     }
 
-    //left_index < parent.num_key && needed? -> maybe not
+    //left_index < parent.num_key && needed? -> no
     while(parent.records[left_index].pagenum != left_page_num)
     {
         left_index++;
@@ -558,7 +611,7 @@ void insert_into_parent(internal_page_t * left, pagenum_t left_page_num, int key
 
     file_read_page(left->parent_page_num, (page_t *)&parent);
 
-    left_index = get_left_index(left, left_page_num);
+    left_index = get_left_index(left_page_num);
 
     //if(parent.num_key < 248)
     if(parent.num_key < 2)
@@ -702,6 +755,7 @@ int db_insert(int64_t key, char * value)
                 printf("%ld ", leaf.records[i].key);
             }
             printf("\n");
+            //
             return 0;
         }
         // Case: leaf has no room for records -> split
@@ -713,7 +767,449 @@ int db_insert(int64_t key, char * value)
     }
 }
 
-int db_delete(int64_t key)
+// after deletion entry from root page, adjust root page information
+void adjust_root_page(header_page_t * header, pagenum_t root_page_num)
+{
+    internal_page_t root, new_root;
+    pagenum_t new_root_page_num;
+
+    file_read_page(root_page_num, (page_t *)&root);
+
+    // Case: root is nonempty -> nothing to be done
+    if(root.num_key > 0)
+    {
+        printf("root is nonempty. just exit.\n");
+        return ;
+    }
+
+    // Case: root is empty but has a child
+    if(!root.isLeaf)
+    {   
+        new_root_page_num = root.leftmostdown_page_num;
+        
+        header->root_page_num = new_root_page_num;
+        printf("new root page %ld is born!\n", new_root_page_num);
+        file_write_page(0, (page_t *)header);
+
+        file_read_page(new_root_page_num, (page_t *)&new_root);
+        new_root.parent_page_num = 0;
+        file_write_page(new_root_page_num, (page_t *)&new_root);
+        file_free_page(root_page_num);
+    }
+    // Case root is empty but has no child
+    else
+    {
+        printf("root page's records are all deleted\n");
+        printf("tree becomes empty\n");
+        header->root_page_num = 0;
+        file_write_page(0, (page_t *)header);
+        file_free_page(root_page_num);
+    }
+}
+
+// remove an entry with key in page n and shift other records for tidiness
+// and return the page number where deletion occured
+pagenum_t remove_entry_from_page(pagenum_t n, int64_t key)
+{
+    internal_page_t internal;
+    leaf_page_t leaf;
+    int deletion_point, i;
+
+    file_read_page(n, (page_t *)&leaf);
+
+    // when remove entry from internal page
+    if(!leaf.isLeaf)
+    {   
+        printf("remove entry with key %ld from internal page!\n", key);
+
+        // because entry type is different, read page again with internal_page_t type
+        file_read_page(n, (page_t *)&internal);
+
+        // internal page has an one more special key which points to the left most page
+        // so this condition means that removing that key value from page 
+        if(internal.num_key == 0)
+        {
+            printf("internal page's keys are already deleted!, and the only left is a leftmostpage.\n");
+            internal.leftmostdown_page_num = 0; //
+            file_write_page(n, (page_t *)&internal); //
+            file_free_page(internal.leftmostdown_page_num); //
+            return n;
+        }
+
+        for(i = 0; i < internal.num_key; i++)
+        {
+            if(internal.records[i].key == key)
+            {
+                deletion_point = i;
+                break;
+            }
+        }
+
+        for(i = deletion_point + 1; i < internal.num_key; i++)
+        {   
+            internal.records[i - 1].key = internal.records[i].key;
+            internal.records[i - 1].pagenum = internal.records[i].pagenum;
+        }
+        internal.num_key--;
+
+        file_write_page(n, (page_t *)&internal);
+    }
+    // when remove an entry from leaf page
+    else
+    {
+        printf("remove entry with key %ld from leaf page!\n", key);
+        for(i = 0; i < leaf.num_key; i++)
+        {
+            if(leaf.records[i].key == key)
+            {
+                deletion_point = i;
+                break;
+            }
+        }
+
+        // not really remove data, change num_key
+        for(i = deletion_point + 1; i < leaf.num_key; i++)
+        {
+            leaf.records[i - 1].key = leaf.records[i].key;
+            strcpy(leaf.records[i - 1].value, leaf.records[i].value);
+        }
+        leaf.num_key--;
+        file_write_page(n, (page_t *)&leaf);
+    }
+
+    return n;
+}
+
+// get neighbor page's index from the parent page
+// return -2 when the current page is the leftmost page
+// return -1 when the current page is the right next to the leftmost page
+int get_neighbor_page_index(pagenum_t page_num)
+{
+    pagenum_t parent_page_number;
+    internal_page_t parent;
+    internal_page_t n;
+    int i;
+
+    file_read_page(page_num, (page_t *)&n);
+    parent_page_number = n.parent_page_num;
+    file_read_page(parent_page_number, (page_t *)&parent);
+
+    if(page_num == parent.leftmostdown_page_num)
+    {
+        return -2;
+    }
+
+    for(i = 0; i < parent.num_key; i++)
+    {
+        if(parent.records[i].pagenum == page_num)
+        {
+            return i - 1;
+        }
+    }
+}
+
+
+pagenum_t get_left_sibling_leaf_page_num(pagenum_t n)
+{
+    printf("lets's find left sibling leaf page!\n ");
+    leaf_page_t start_page;
+    internal_page_t parent_page, grandparent_page;
+    pagenum_t parent_page_num, grandparent_page_num;
+    int i, index;
+
+    file_read_page(n, (page_t *)&start_page);
+    parent_page_num = start_page.parent_page_num;
+
+    while(1)
+    {
+    
+        file_read_page(parent_page_num, (page_t *)&parent_page);
+        grandparent_page_num = parent_page.parent_page_num;
+        if(grandparent_page_num == 0)
+        {
+            // special case
+            return -1;
+        }
+        file_read_page(grandparent_page_num, (page_t *)&grandparent_page);
+
+        if(grandparent_page.leftmostdown_page_num != parent_page_num)
+        {
+            break;
+        }
+        else
+        {
+            parent_page_num = grandparent_page_num;
+        }
+        
+    }
+
+    printf("grand parent page : %ld. let's move down\n", grandparent_page_num);
+
+    for(i = 0; i < grandparent_page.num_key; i++)
+    {
+        if(grandparent_page.records[i].pagenum == parent_page_num)
+        {
+            index = i;
+            break;
+        }
+    }
+
+    internal_page_t parent_neighbor_page;
+    internal_page_t child_page;
+    leaf_page_t target_page;
+    pagenum_t parent_neighbor_page_num;
+    pagenum_t child_page_num;
+
+    child_page.isLeaf = 0;
+
+    if(index == 0)
+    {
+        parent_neighbor_page_num = grandparent_page.leftmostdown_page_num;
+    }
+    else
+    {
+        parent_neighbor_page_num = grandparent_page.records[index - 1].pagenum;
+    }
+
+    
+    while(!child_page.isLeaf)
+    {
+        file_read_page(parent_neighbor_page_num, (page_t *)&parent_neighbor_page);
+        if(parent_neighbor_page.num_key == 0)
+        {
+            index = parent_neighbor_page.leftmostdown_page_num;
+        }
+        else
+        {
+            index = parent_neighbor_page.num_key - 1;
+        }
+        
+        child_page_num = parent_neighbor_page.records[index].pagenum;
+        file_read_page(child_page_num, (page_t *)&child_page);
+        parent_neighbor_page_num = child_page_num;
+        // file_read_page(parent_neighbor_page_num, (page_t *)&parent_neighbor_page);
+    }
+    
+    printf("the target leaf page num : %ld\n", child_page_num);
+    return child_page_num;
+}
+
+void delayed_merge(pagenum_t parent, pagenum_t neighbor, pagenum_t n, int neighbor_index, int64_t k_prime)
 {
 
+    internal_page_t parent_page;
+    internal_page_t internal_n, internal_neighbor, internal_tmp;
+    leaf_page_t leaf_n, leaf_neighbor;
+    int neighbor_insertion_index;
+
+    file_read_page(parent, (page_t *)&parent_page);
+    file_read_page(n, (page_t*)&internal_n);
+
+    // case : internal page
+    if(!internal_n.isLeaf)
+    {
+        // don't merge page n with neighbor until all elements are deleted
+        if(internal_n.leftmostdown_page_num != 0)
+        {
+            printf("internal page's leftmost page is still alive! stop merging,,\n");
+            return;
+        }
+        else
+        {
+            // case 1 : n is the left most internal page
+            if(neighbor_index == -2)
+            {
+                // case 1-1 : n is the last child page
+                if(parent_page.num_key == 0)
+                {
+                    printf("special case : deleting the the last remaining page\n ");
+                    parent_page.leftmostdown_page_num = 0;
+                    file_write_page(parent, (page_t *)&parent_page);
+                }
+                // case 1-2 : because of the structure of internal page,
+                // before removing entry from parent page, move the first pagenum to the leftmostdown_page_num
+                else
+                {
+                    printf("special case : deleting the left most internal page -> copy!\n");
+                    parent_page.leftmostdown_page_num = parent_page.records[0].pagenum;
+                    file_write_page(parent, (page_t *)&parent_page);
+                }
+                
+            }
+            else
+            {
+                //
+            }
+            
+            file_free_page(n);
+            printf("while merging, internal page %ld is freed!\n", n);
+
+        }
+    }
+    // case: leaf page
+    else
+    {
+        // special case : page n is the leftmost page
+        if(neighbor_index == -2)
+        {
+            // for delay merge
+            if(parent_page.num_key == 0)
+            {
+                parent_page.leftmostdown_page_num = 0;
+                file_write_page(parent, (page_t *)&parent_page);
+                
+                //how to connect left subtree's right most leaf page
+                // to right subtree's left most leaf page?
+                pagenum_t left_sibling_leaf_page_num;
+                leaf_page_t left_sibling_leaf_page;
+
+                file_read_page(n, (page_t *)&leaf_n);
+                left_sibling_leaf_page_num = get_left_sibling_leaf_page_num(n);
+                if(left_sibling_leaf_page_num != -1)
+                {
+                    printf("special case! : link leaf page(%ld) to leaf page(%ld)\n", left_sibling_leaf_page_num, leaf_n.right_sibling_page_num);
+                    file_read_page(left_sibling_leaf_page_num, (page_t * )&left_sibling_leaf_page);
+                    left_sibling_leaf_page.right_sibling_page_num = leaf_n.right_sibling_page_num;
+                    file_write_page(left_sibling_leaf_page_num, (page_t * )&left_sibling_leaf_page);
+
+                }
+                
+
+                // int parent_neighbor_index = get_neighbor_page_index(parent);
+                // int parent_neighbor_page_num_key;
+                // pagenum_t parent_neighbor_page_num;
+                // internal_page_t parent_of_parent, parent_neighbor;
+                // pagenum_t parent_neighbor_rightmost_page_num;
+                // leaf_page_t parent_neighbor_rightmost_page;
+
+                // if(parent_neighbor_index != -2)
+                // {
+                //     file_read_page(parent_page.parent_page_num, (page_t *)&parent_of_parent);
+
+
+                //     if(parent_neighbor_index == -1)
+                //     {
+                //         parent_neighbor_page_num = parent_of_parent.leftmostdown_page_num;
+                //     }
+                //     else
+                //     {
+                //         parent_neighbor_page_num = parent_of_parent.records[parent_neighbor_index].pagenum;
+                //     }
+                //     file_read_page(parent_neighbor_page_num, (page_t * )&parent_neighbor);
+                //     parent_neighbor_page_num_key = parent_neighbor.num_key;
+                //     parent_neighbor_rightmost_page_num = parent_neighbor.records[parent_neighbor_page_num_key].pagenum;
+
+                //     file_read_page(parent_neighbor_rightmost_page_num, (page_t *)&parent_neighbor_rightmost_page);
+                //     parent_neighbor_rightmost_page.right_sibling_page_num = n;
+                //     file_write_page(parent_neighbor_rightmost_page_num, (page_t *)&parent_neighbor_rightmost_page);
+                // }
+            }
+            else
+            {
+                printf("special case : deleting the left most leaf page -> copy!\n");
+                // ?!?!
+                parent_page.leftmostdown_page_num = neighbor;
+                file_write_page(parent, (page_t *)&parent_page);     
+            }
+            
+        }
+        else
+        {
+            file_read_page(n, (page_t *)&leaf_n);
+            file_read_page(neighbor, (page_t *)&leaf_neighbor);
+            leaf_neighbor.right_sibling_page_num = leaf_n.right_sibling_page_num;
+            file_write_page(neighbor, (page_t *)&leaf_neighbor);
+        }
+        file_free_page(n);
+        printf("while merging, leaf page %ld is freed!\n", n);
+
+    }
+    delete_entry(parent, k_prime);
+}
+
+// delete entry with key in the page n.
+// if page's entrys are all deleted, modify b+ tree structure using delayed merged.
+void delete_entry(pagenum_t n, int64_t key) 
+{
+    printf("delete entry with key %ld in page %ld,,\n", key, n);
+    //header information changes?
+    header_page_t header;
+    internal_page_t parent;
+    leaf_page_t page;
+    pagenum_t page_num, neighbor_page_num;
+    int neighbor_page_index;
+    int k_prime_index;
+    int64_t k_prime;
+
+    page_num = remove_entry_from_page(n, key);
+
+    file_read_page(0, (page_t *)&header);
+
+    // Case: deletion from the root
+    if(page_num == header.root_page_num)
+    {
+        printf("deletion occured in root page %ld! adjust root,,,\n", page_num);
+        adjust_root_page(&header, page_num);
+        return ;
+    }
+
+    // it doesn't matter reading page with leaf_page_t type because
+    // leaf page and internal page share the same header information
+    file_read_page(page_num, (page_t *)&page);
+
+    // Case: deletion below the root and the number of records becomes 0 -> delayed merge
+    if(page.num_key == 0)
+    {
+        printf("deletion occured in below root page! merge start,,\n");
+
+        neighbor_page_index = get_neighbor_page_index(page_num);
+
+        if(neighbor_page_index == -2 || neighbor_page_index == -1)
+        {
+            k_prime_index = 0;
+        }
+        else
+        {
+            k_prime_index = neighbor_page_index + 1;
+        }
+        file_read_page(page.parent_page_num, (page_t *)&parent);
+        k_prime = parent.records[k_prime_index].key;
+
+        // when n is the leftmost page
+        if(neighbor_page_index == -2)
+        {
+            neighbor_page_num = parent.records[0].pagenum;
+        }
+        // when n is the right page of the leftmost page
+        else if(neighbor_page_index == -1)
+        {
+            neighbor_page_num = parent.leftmostdown_page_num;
+        }
+        else
+        {
+            neighbor_page_num = parent.records[neighbor_page_index].pagenum;
+        }
+        
+        delayed_merge(page.parent_page_num ,neighbor_page_num, page_num, neighbor_page_index, k_prime);
+
+    }
+}
+// delete record with key. if success, return 0
+// else return -1. using delayed merge
+int db_delete(int64_t key)
+{
+    pagenum_t leaf_page_num;
+    char tmp[120];
+
+    if(db_find(key, tmp) == -1)
+    {
+        printf("there is no record with key %ld\n", key);
+        return -1;
+    }
+
+    leaf_page_num = find_leaf_page(key);
+    
+    delete_entry(leaf_page_num, key);
+
+    return 0;
 }

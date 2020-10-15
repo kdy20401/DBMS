@@ -7,7 +7,7 @@ int main(int argc, char ** argv)
 {
     int ret;
     char instruction;
-    uint64_t key;
+    int64_t key;
     char value[120];
     header_page_t header, tmp;
 
@@ -24,7 +24,7 @@ int main(int argc, char ** argv)
                 break;
             case 'f':
                 scanf("%ld", &key);
-                if(db_find(key, value) != -1)
+                if(db_find(key, value) == 0)
                 {
                     printf("key : %ld, value : %s\n", key, value);
                 }
@@ -46,6 +46,21 @@ int main(int argc, char ** argv)
             case 'x':
                 remove("datafile.bin");
                 open_table("datafile.bin");
+                break;
+            case 'd':
+                scanf("%ld", &key);
+                if(db_delete(key) == 0)
+                {
+                    printf("test_main : record with key %ld is deleted\n", key);
+                }
+                else
+                {
+                    printf("test_main : record with key %ld doesn't exist in the tree\n", key);
+                }
+                break;
+            case 's':
+                show_leaf_page_keys();
+                break;
             default:
                 break;
         }

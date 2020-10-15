@@ -1,4 +1,4 @@
-#include "../include/file.h"
+#include "file.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -54,12 +54,6 @@ pagenum_t file_alloc_page()
     header_page_t header;
     pagenum_t free_page_num, page_num;
 
-    // header = (header_page_t *)malloc(sizeof(PAGE_SIZE));
-    // if(header == NULL)
-    // {
-        // printf("malloc() failed\n");
-        // exit(0);
-    // }
     file_read_page(0, (page_t *)&header);
 
     free_page_num = header.free_page_num; // 2
@@ -77,23 +71,11 @@ pagenum_t file_alloc_page()
     //get free pages from free page list
     free_page_t tmp;
     int next_free_page;
-    
-    // tmp = (free_page_t *)malloc(sizeof(PAGE_SIZE));
-    // if(tmp == NULL)
-    // {
-        // printf("malloc() failed\n");
-        // printf("file_alloc_page() failed");
-        // exit(0);
-    // }
 
-    file_read_page(free_page_num, (page_t *)&tmp); //tmp->2
-    next_free_page = tmp.next_free_page_num; //next_free_page=3
-    header.free_page_num = next_free_page; // 3
+    file_read_page(free_page_num, (page_t *)&tmp);
+    next_free_page = tmp.next_free_page_num;
+    header.free_page_num = next_free_page;
     file_write_page(0, (page_t *)&header);
-
-    //for test
-    file_read_page(0, (page_t *)&header);
-    //
 
     return free_page_num;
 }

@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 #define PAGE_SIZE 4096
+#define MAX_RECORD 31
+#define MAX_ENTRY 248
 typedef uint64_t pagenum_t;
 
 //leaf record
@@ -12,7 +14,7 @@ typedef struct record1 {
     char value[120];
 }record1;
 
-//internal record(?)
+//internal record
 typedef struct record2 {
     int64_t key;
     pagenum_t pagenum;
@@ -42,9 +44,7 @@ typedef struct {
     uint32_t num_key;
     int reserved[26];
     pagenum_t leftmostdown_page_num;
-    // record2 records[248];
-    record2 records[2];
-    record2 records_reserved[246];
+    record2 records[248];
 }internal_page_t;
 
 typedef struct {
@@ -54,9 +54,7 @@ typedef struct {
     uint32_t num_key;
     int reserved[26];
     pagenum_t right_sibling_page_num;
-    // record1 records[31];
-    record1 records[3];
-    record1 records_reserved[28];
+    record1 records[31];
 }leaf_page_t;
 
 uint64_t fd;

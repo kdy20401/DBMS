@@ -1,32 +1,73 @@
-// #include <stdint.h>
+
+/*
+ *
+ *  bpt:  B+ Tree Implementation
+ *  Copyright (C) 2010-2016  Amittai Aviram  http://www.amittai.com
+ *  All rights reserved.
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *  1. Redistributions of source code must retain the above copyright notice, 
+ *  this list of conditions and the following disclaimer.
+ *
+ *  2. Redistributions in binary form must reproduce the above copyright notice, 
+ *  this list of conditions and the following disclaimer in the documentation 
+ *  and/or other materials provided with the distribution.
+ 
+ *  3. Neither the name of the copyright holder nor the names of its 
+ *  contributors may be used to endorse or promote products derived from this 
+ *  software without specific prior written permission.
+ 
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+ *  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE 
+ *  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
+ *  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+ *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+ *  POSSIBILITY OF SUCH DAMAGE.
+ 
+ *  Author:  Amittai Aviram 
+ *    http://www.amittai.com
+ *    amittai.aviram@gmail.edu or afa13@columbia.edu
+ *  Original Date:  26 June 2010
+ *  Last modified: 17 June 2016
+ *
+ *  This implementation demonstrates the B+ tree data structure
+ *  for educational purposes, includin insertion, deletion, search, and display
+ *  of the search path, the leaves, or the whole tree.
+ *  
+ *  Must be compiled with a C99-compliant C compiler such as the latest GCC.
+ *
+ *  Usage:  bpt [order]
+ *  where order is an optional argument
+ *  (integer MIN_ORDER <= order <= MAX_ORDER)
+ *  defined as the maximal number of pointers in any node.
+ *
+ * 
+ * 
+ */
+
+/*
+ * diskbpt.c which is a disk-based b+ tree is based on the bpt.c
+ * above annotations contains information of bpt.c (e.g. copyright,,) 
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 
-// #include <sys/types.h>
-// #include <sys/stat.h>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "../include/diskbpt.h"
+#include "diskbpt.h"
 
 extern uint64_t fd; 
-/*
-new function
-int find_leaf_page(key key)
-void init_table(int fd)
-void close_table(void)
-
-vo. enqueue(pagenum_t page_num)
-pagenum_t dequeue()
-int path_to_root(interna(internal_page_t *)l_page_t * root, internal_page_t * child)
-void print_tree(header_page_t * header)
-*/
-
-
-void delete_entry(pagenum_t n, int64_t key);
-void insert_into_parent(internal_page_t * left, pagenum_t left_page_num, int key, internal_page_t * right, pagenum_t right_page_num);
 
 void show_leaf_page_keys()
 {
@@ -146,7 +187,6 @@ pagenum_t dequeue()
     return page_num;
 }
 
-// new_rank = path_to_root(&root, (internal_page_t *)&tmp1);
 
 int path_to_root(pagenum_t pagenum)
 {
@@ -282,7 +322,7 @@ void init_table(int fd)
 
 int open_table(char * pathname)
 {
-    fd = open(pathname, O_RDWR | O_CREAT | O_EXCL | O_SYNC, 0644);
+    fd = open(pathname, O_RDWR | O_CREAT | O_EXCL, 0644);
 
     if(fd != -1)
     {
@@ -291,7 +331,7 @@ int open_table(char * pathname)
     }
     else if((fd == -1) && (EEXIST == errno)) //data file already exists
     {
-        fd = open(pathname, O_RDWR | O_SYNC);
+        fd = open(pathname, O_RDWR);
     }
     
     return fd;
@@ -435,8 +475,6 @@ void insert_into_leaf(pagenum_t leaf_page_num, int64_t key, char * value)
     strcpy(leaf.records[insertion_point].value, value);
     leaf.num_key++;
 
-    // printf("new key : %ld\n", leaf.records[insertion_point].key);
-    // printf("new record : %s\n", leaf.records[insertion_point].value);
 
     printf("keys in the leaf after inserting :\n");
     for(int i = 0; i < leaf.num_key; i++)
@@ -453,8 +491,7 @@ void insert_into_node_after_splitting(internal_page_t * old, pagenum_t old_page_
     int i, j, split, k_prime;
     internal_page_t new;
     pagenum_t new_page_num;
-    // record2 tmp[249];
-    record2 tmp[3];
+    record2 tmp[MAX_ENTRY + 1];
 
     // create tmp array which contains key and pagenum in order,
     // including new key and pagenum
@@ -474,9 +511,7 @@ void insert_into_node_after_splitting(internal_page_t * old, pagenum_t old_page_
     // split tmp in tmp[0~split-1], tmp[split], tmp[split+1 ~ 248]
     // as a result,     old          k_prime          new
 
-    // split = (n + 1) / 2
-    // split = 249 / 2;
-    split = 3 / 2;
+    split = (MAX_ENTRY + 1) / 2;
     new.isLeaf = 0;
     new.num_key = 0;
     new.parent_page_num = old->parent_page_num;
@@ -490,7 +525,9 @@ void insert_into_node_after_splitting(internal_page_t * old, pagenum_t old_page_
         old->num_key++;
     }
     k_prime = tmp[split].key;
-    for(++i, j = 0; i < 3; i++, j++)
+    // when splitting in internal page, unlike in leaf page, raise the middle key(k_prime) up and
+    // do not leave the middle key in the new page so, ++i
+    for(++i, j = 0; i < MAX_ENTRY + 1; i++, j++) 
     {
         new.records[j].key = tmp[i].key;
         new.records[j].pagenum = tmp[i].pagenum;
@@ -596,6 +633,8 @@ void insert_into_new_root(internal_page_t * left, pagenum_t left_page_num, int k
     file_write_page(right_page_num, (page_t *)right);
 }
 
+
+
 void insert_into_parent(internal_page_t * left, pagenum_t left_page_num, int key, internal_page_t * right, pagenum_t right_page_num)
 {
     printf("insert %d into parent!\n", key);
@@ -613,19 +652,17 @@ void insert_into_parent(internal_page_t * left, pagenum_t left_page_num, int key
 
     left_index = get_left_index(left_page_num);
 
-    //if(parent.num_key < 248)
-    if(parent.num_key < 2)
+    if(parent.num_key < MAX_ENTRY)
     {
         // insert into node
         return insert_into_node(left, left_index, key, right, right_page_num);
-        //return insert_into_node(left, left_index, key, right);
         
     }
     else
     {
+        // insert into node after splitting
         printf("split propagation!!!!\n");
         return insert_into_node_after_splitting(&parent, left->parent_page_num, left_index, key, right_page_num);
-        // insert into node after splitting
     }
     
 
@@ -637,10 +674,8 @@ void insert_into_leaf_after_splitting(leaf_page_t * leaf, pagenum_t leaf_page_nu
     int new_leaf_page_num_key, new_leaf_page_right_sibling_page;
     int new_key; // which is going to parent page;
     pagenum_t new_leaf_page_num;
-    // record1 temp_arr[32];
-    // record1 new_record[31];
-    record1 temp_arr[4];
-    record1 new_record[3];
+    record1 temp_arr[MAX_RECORD + 1];
+    record1 new_record[MAX_RECORD];
 
     leaf_page_t new_leaf;
 
@@ -666,8 +701,7 @@ void insert_into_leaf_after_splitting(leaf_page_t * leaf, pagenum_t leaf_page_nu
 
     // split into leaf and new leaf
     leaf->num_key = 0;
-    // split = 16;
-    split = 2;
+    split = (MAX_RECORD + 1) / 2; // when the number of max record is odd, split the node in the exact half
     for(i = 0; i < split; i++)
     {
         leaf->records[i].key = temp_arr[i].key;
@@ -676,7 +710,7 @@ void insert_into_leaf_after_splitting(leaf_page_t * leaf, pagenum_t leaf_page_nu
     }
 
     new_leaf_page_num_key = 0;
-    for(j = 0; j < split; i++, j++)
+    for(j = 0; i < MAX_RECORD + 1; i++, j++)
     {
         new_record[j].key = temp_arr[i].key;
         strcpy(new_record[j].value, temp_arr[i].value);
@@ -739,23 +773,13 @@ int db_insert(int64_t key, char * value)
         printf("leaf page number : %ld\n", leaf_page_num);
 
         // Case: leaf has room for records
-        // if(leaf.num_key < 31)
-        if(leaf.num_key < 3)
+        if(leaf.num_key < MAX_RECORD)
         {
             //insert into leaf
             printf("current leaf's key number : %d\n", leaf.num_key);
             printf("insert into leaf,,\n");
             insert_into_leaf(leaf_page_num, key, value);
 
-            //tmp
-            file_read_page(leaf_page_num, (page_t *)&leaf);
-            printf("after writing in the disk, keys are :\n");
-            for(int i = 0; i < leaf.num_key; i++)
-            {
-                printf("%ld ", leaf.records[i].key);
-            }
-            printf("\n");
-            //
             return 0;
         }
         // Case: leaf has no room for records -> split
@@ -908,10 +932,11 @@ int get_neighbor_page_index(pagenum_t page_num)
     }
 }
 
-
+// this function is used when the right subtree's left most leaf page is deleted,
+// to link the left subtree's right most leaf page to next leaf page.
 pagenum_t get_left_sibling_leaf_page_num(pagenum_t n)
 {
-    printf("lets's find left sibling leaf page!\n ");
+    printf("lets's find left sibling leaf page!\n");
     leaf_page_t start_page;
     internal_page_t parent_page, grandparent_page;
     pagenum_t parent_page_num, grandparent_page_num;
@@ -927,7 +952,7 @@ pagenum_t get_left_sibling_leaf_page_num(pagenum_t n)
         grandparent_page_num = parent_page.parent_page_num;
         if(grandparent_page_num == 0)
         {
-            // special case
+            printf("the leaf page is the right most page in the tree! return,,\n");
             return -1;
         }
         file_read_page(grandparent_page_num, (page_t *)&grandparent_page);
@@ -977,17 +1002,16 @@ pagenum_t get_left_sibling_leaf_page_num(pagenum_t n)
         file_read_page(parent_neighbor_page_num, (page_t *)&parent_neighbor_page);
         if(parent_neighbor_page.num_key == 0)
         {
-            index = parent_neighbor_page.leftmostdown_page_num;
+            child_page_num = parent_neighbor_page.leftmostdown_page_num;
         }
         else
         {
             index = parent_neighbor_page.num_key - 1;
+            child_page_num = parent_neighbor_page.records[index].pagenum;
         }
         
-        child_page_num = parent_neighbor_page.records[index].pagenum;
         file_read_page(child_page_num, (page_t *)&child_page);
         parent_neighbor_page_num = child_page_num;
-        // file_read_page(parent_neighbor_page_num, (page_t *)&parent_neighbor_page);
     }
     
     printf("the target leaf page num : %ld\n", child_page_num);
@@ -1036,10 +1060,7 @@ void delayed_merge(pagenum_t parent, pagenum_t neighbor, pagenum_t n, int neighb
                 }
                 
             }
-            else
-            {
-                //
-            }
+            //when n is not the left most internal page, just free that page
             
             file_free_page(n);
             printf("while merging, internal page %ld is freed!\n", n);
@@ -1060,56 +1081,26 @@ void delayed_merge(pagenum_t parent, pagenum_t neighbor, pagenum_t n, int neighb
                 
                 //how to connect left subtree's right most leaf page
                 // to right subtree's left most leaf page?
-                pagenum_t left_sibling_leaf_page_num;
-                leaf_page_t left_sibling_leaf_page;
-
-                file_read_page(n, (page_t *)&leaf_n);
-                left_sibling_leaf_page_num = get_left_sibling_leaf_page_num(n);
-                if(left_sibling_leaf_page_num != -1)
-                {
-                    printf("special case! : link leaf page(%ld) to leaf page(%ld)\n", left_sibling_leaf_page_num, leaf_n.right_sibling_page_num);
-                    file_read_page(left_sibling_leaf_page_num, (page_t * )&left_sibling_leaf_page);
-                    left_sibling_leaf_page.right_sibling_page_num = leaf_n.right_sibling_page_num;
-                    file_write_page(left_sibling_leaf_page_num, (page_t * )&left_sibling_leaf_page);
-
-                }
-                
-
-                // int parent_neighbor_index = get_neighbor_page_index(parent);
-                // int parent_neighbor_page_num_key;
-                // pagenum_t parent_neighbor_page_num;
-                // internal_page_t parent_of_parent, parent_neighbor;
-                // pagenum_t parent_neighbor_rightmost_page_num;
-                // leaf_page_t parent_neighbor_rightmost_page;
-
-                // if(parent_neighbor_index != -2)
-                // {
-                //     file_read_page(parent_page.parent_page_num, (page_t *)&parent_of_parent);
-
-
-                //     if(parent_neighbor_index == -1)
-                //     {
-                //         parent_neighbor_page_num = parent_of_parent.leftmostdown_page_num;
-                //     }
-                //     else
-                //     {
-                //         parent_neighbor_page_num = parent_of_parent.records[parent_neighbor_index].pagenum;
-                //     }
-                //     file_read_page(parent_neighbor_page_num, (page_t * )&parent_neighbor);
-                //     parent_neighbor_page_num_key = parent_neighbor.num_key;
-                //     parent_neighbor_rightmost_page_num = parent_neighbor.records[parent_neighbor_page_num_key].pagenum;
-
-                //     file_read_page(parent_neighbor_rightmost_page_num, (page_t *)&parent_neighbor_rightmost_page);
-                //     parent_neighbor_rightmost_page.right_sibling_page_num = n;
-                //     file_write_page(parent_neighbor_rightmost_page_num, (page_t *)&parent_neighbor_rightmost_page);
-                // }
             }
             else
             {
                 printf("special case : deleting the left most leaf page -> copy!\n");
-                // ?!?!
                 parent_page.leftmostdown_page_num = neighbor;
-                file_write_page(parent, (page_t *)&parent_page);     
+                file_write_page(parent, (page_t *)&parent_page);
+                // n = neighbor;     
+            }
+
+            pagenum_t left_sibling_leaf_page_num;
+            leaf_page_t left_sibling_leaf_page;
+            file_read_page(n, (page_t *)&leaf_n);
+            left_sibling_leaf_page_num = get_left_sibling_leaf_page_num(n);
+            printf("left sibling leaf page num : %ld\n", left_sibling_leaf_page_num);
+            if(left_sibling_leaf_page_num != -1)
+            {
+                printf("special case! : link leaf page(%ld) to leaf page(%ld)\n", left_sibling_leaf_page_num, leaf_n.right_sibling_page_num);
+                file_read_page(left_sibling_leaf_page_num, (page_t * )&left_sibling_leaf_page);
+                left_sibling_leaf_page.right_sibling_page_num = leaf_n.right_sibling_page_num;
+                file_write_page(left_sibling_leaf_page_num, (page_t * )&left_sibling_leaf_page);
             }
             
         }
@@ -1132,7 +1123,7 @@ void delayed_merge(pagenum_t parent, pagenum_t neighbor, pagenum_t n, int neighb
 void delete_entry(pagenum_t n, int64_t key) 
 {
     printf("delete entry with key %ld in page %ld,,\n", key, n);
-    //header information changes?
+    
     header_page_t header;
     internal_page_t parent;
     leaf_page_t page;

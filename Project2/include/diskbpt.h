@@ -17,7 +17,7 @@ void show_free_page_list();
 void enqueue(pagenum_t page_num);
 pagenum_t dequeue();
 int path_to_root(pagenum_t pagenum);
-void print_tree(header_page_t * header);
+void print_tree(void);
 
 void close_table(void);
 void init_table(int fd);

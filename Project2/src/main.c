@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "../include/diskbpt.h"
+#include "diskbpt.h"
 
 
 int main(int argc, char ** argv)
@@ -10,7 +10,7 @@ int main(int argc, char ** argv)
     int64_t key;
     char value[120];
     header_page_t header, tmp;
-    char datafile[20] = "sample_10000.db";
+    char datafile[20] = "mydata.bin";
     open_table(datafile);
     printf("> ");
     while (scanf("%c", &instruction) != EOF) {
@@ -19,8 +19,6 @@ int main(int argc, char ** argv)
             case 'i':
                 scanf("%ld %s", &key, value);
                 db_insert(key, value);
-                file_read_page(0, (page_t *)&header);
-                // print_tree(&header);
                 break;
             case 'f':
                 scanf("%ld", &key);
@@ -38,13 +36,12 @@ int main(int argc, char ** argv)
                 return 0;
                 break;
             case 'p':
-                file_read_page(0, (page_t *)&header);
-                print_tree(&header);
+                print_tree();
                 break;
-            // case 'x':
-                // remove(datafile);
-                // open_table(datafile);
-                // break;
+            case 'x':
+                remove(datafile);
+                open_table(datafile);
+                break;
             case 'd':
                 scanf("%ld", &key);
                 if(db_delete(key) == 0)

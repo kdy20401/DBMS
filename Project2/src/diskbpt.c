@@ -55,6 +55,7 @@
  * diskbpt.c which is a disk-based b+ tree is based on the bpt.c
  * above annotations contains information of bpt.c (e.g. copyright,,) 
 */
+#include "diskbpt.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,7 +66,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "diskbpt.h"
 
 extern uint64_t fd; 
 
@@ -214,19 +214,20 @@ int path_to_root(pagenum_t pagenum)
     }
 }
 
-void print_tree(header_page_t * header)
+void print_tree(void)
 {
     pagenum_t n;
-    // internal_page_t root;
     internal_page_t tmp;
     internal_page_t parent;
     leaf_page_t tmp1;
+    header_page_t header;
 
+    file_read_page(0, (page_t *)&header);
     int i = 0;
     int rank = 0;
     int new_rank = 0;
 
-    if(header->root_page_num == 0)
+    if(header.root_page_num == 0)
     {
         printf("Empty tree.\n");
         return;
@@ -234,7 +235,7 @@ void print_tree(header_page_t * header)
 
     // file_read_page(header->root_page_num, (page_t *)&root);
     queue = NULL;
-    enqueue(header->root_page_num);
+    enqueue(header.root_page_num);
 
     while(queue != NULL)
     {
@@ -306,13 +307,6 @@ void init_table(int fd)
 {
     header_page_t header;
 
-    // header = (header_page_t *)malloc(sizeof(PAGE_SIZE));
-    // if(header == NULL)
-    // {
-        // printf("malloc() failed\n");
-        // printf("init_table() failed\n");
-        // exit(0);
-    // }
     header.free_page_num = 0;
     header.root_page_num = 0;
     header.page_num = 1;
@@ -764,7 +758,6 @@ int db_insert(int64_t key, char * value)
         printf("start_new_tree,,\n");
         start_new_tree(key, value);
         printf("root node is created!\n");
-        return 0;
     }
     else
     {
@@ -789,6 +782,7 @@ int db_insert(int64_t key, char * value)
             insert_into_leaf_after_splitting(&leaf, leaf_page_num, key, value);
         }
     }
+    return 0;
 }
 
 // after deletion entry from root page, adjust root page information

@@ -39,7 +39,7 @@ pagenum_t make_free_page(header_page_t * header)
 
     for(i = 0; i < FREE_PAGE_NUM; i++)
     {
-        printf("free page(#%d) is created!\n", start_free_page_num);
+        printf("free page(#%d) is created!!!!\n", start_free_page_num);
         file_write_page(start_free_page_num, (page_t *)&tmp[i]);
         start_free_page_num++;
     }

@@ -6,6 +6,7 @@
 #define PAGE_SIZE 4096
 #define MAX_RECORD 31
 #define MAX_ENTRY 248
+
 typedef uint64_t pagenum_t;
 
 //leaf record

@@ -13,8 +13,10 @@ LIBS=lib/
 TARGET_SRC:=$(SRCDIR)main.c
 TARGET_OBJ:=$(SRCDIR)main.o
 
+OBJECTS = $(SRCDIR)main.o $(SRCDIR)diskbpt.o $(SRCDIR)file.o
+
 # Include more files if you write another source file.
-SRCS_FOR_LIB:=$(SRCDIR)bpt.c
+SRCS_FOR_LIB:=$(SRCDIR)diskbpt.c $(SRCDIR)file.c
 OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.c=.o)
 
 CFLAGS+= -g -fPIC -I $(INC)
@@ -23,16 +25,23 @@ TARGET=main
 
 all: $(TARGET)
 
-$(TARGET): $(TARGET_OBJ)
-	$(CC) $(CFLAGS) -o $(OBJS_FOR_LIB) -c $(SRCS_FOR_LIB)
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $(OBJECTS)
 	make static_library
 	$(CC) $(CFLAGS) -o $@ $^ -L $(LIBS) -lbpt
 
 clean:
-	rm $(TARGET) $(TARGET_OBJ) $(OBJS_FOR_LIB) $(LIBS)*
+	rm $(TARGET) $(OBJECTS) $(LIBS)*
 
 library:
 	gcc -shared -Wl,-soname,libbpt.so -o $(LIBS)libbpt.so $(OBJS_FOR_LIB)
 
+# make static library libbpt.a using following object files
 static_library:
 	ar cr $(LIBS)libbpt.a $(OBJS_FOR_LIB)
+
+
+# dependency
+$(SRCDIR)diskbpt.o : $(SRCDIR)diskbpt.c $(INC)diskbpt.h $(INC)file.h 
+$(SRCDIR)file.o : $(SRCDIR)file.c $(INC)file.h
+$(SRCDIR)main.o : $(SRCDIR)main.c $(INC)diskbpt.h $(INC)file.h

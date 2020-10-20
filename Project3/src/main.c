@@ -5,16 +5,20 @@
 
 int main(int argc, char ** argv)
 {
-    int ret;
+    int ret, table_id;
     char instruction;
     int64_t key;
     char value[120];
     header_page_t header, tmp;
-    char datafile[20] = "mydata.bin";
-    char datafile1[20] = "mydata1.bin";
-    open_table(datafile); // fd 6
+    char datafile[20] = "datafile1.bin";
     
-    open_table(datafile1); // fd 7
+    table_id = open_table(datafile);
+
+    if(table_id == -1)
+    {
+        printf("open_table() failed.\n");
+        return 0;
+    }
 
     printf("> ");
     while (scanf("%c", &instruction) != EOF) {
@@ -23,6 +27,8 @@ int main(int argc, char ** argv)
             case 'i':
                 scanf("%ld %s", &key, value);
                 db_insert(key, value);
+                // db_insert1(table_id, key, value);
+
                 break;
             case 'f':
                 scanf("%ld", &key);
@@ -66,6 +72,6 @@ int main(int argc, char ** argv)
         while (getchar() != (int)'\n');
         printf("> ");
     }
-    close_table();
+    close_table(table_id);
     return 0;
 }

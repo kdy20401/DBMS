@@ -19,13 +19,20 @@ pagenum_t dequeue();
 int path_to_root(pagenum_t pagenum);
 void print_tree(void);
 
-void close_table(void);
-void init_table(int fd);
+//buffer manager
+int init_db(int buf_num);
+int shutdown_db(void);
+
+// table initialization
+void close_table(int table_id);
+void init_table(int table_id);
 int open_table(char * pathname);
 
 // find
 pagenum_t find_leaf_page(int64_t key);
 int db_find(int64_t key, char * ret_val);
+int db_find1(int table_id, int64_t key, char * ret_val);
+
 
 // insert
 int get_left_index(pagenum_t left_page_num);
@@ -37,6 +44,7 @@ void insert_into_leaf(pagenum_t leaf_page_num, int64_t key, char * value);
 void insert_into_new_root(internal_page_t * left, pagenum_t left_page_num, int key, internal_page_t * right, pagenum_t right_page_num);
 void start_new_tree(int64_t key, char * value);
 int db_insert(int64_t key, char * value);
+int db_insert1(int table_id, int64_t key, char * value);
 
 // delete
 int get_neighbor_page_index(pagenum_t page_num);
@@ -46,4 +54,6 @@ void adjust_root_page(header_page_t * header, pagenum_t root_page_num);
 pagenum_t remove_entry_from_page(pagenum_t n, int64_t key);
 void delete_entry(pagenum_t n, int64_t key); 
 int db_delete(int64_t key);
+int db_delete1(int table_id, int64_t key);
+
 #endif

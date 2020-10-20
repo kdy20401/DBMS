@@ -6,6 +6,7 @@
 #define PAGE_SIZE 4096
 #define MAX_RECORD 31
 #define MAX_ENTRY 248
+#define MAX_TABLE 10
 
 typedef uint64_t pagenum_t;
 
@@ -58,12 +59,13 @@ typedef struct {
     record records[31];
 }leaf_page_t;
 
-uint64_t fd;
+int tables[MAX_TABLE + 1];
+int table_id = 0;
 
-pagenum_t file_alloc_page();
-void file_free_page(pagenum_t pagenum);
-void file_read_page(pagenum_t pagenum, page_t * dest);
-void file_write_page(pagenum_t pagenum, const page_t * src);
-pagenum_t make_free_page(header_page_t * header);
+pagenum_t file_alloc_page(int table_id);
+void file_free_page(int table_id, pagenum_t pagenum);
+void file_read_page(int table_id, pagenum_t pagenum, page_t * dest);
+void file_write_page(int table_id, pagenum_t pagenum, const page_t * src);
+pagenum_t make_free_page(int table_id, header_page_t * header);
 
 #endif

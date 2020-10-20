@@ -67,7 +67,8 @@
 #include <unistd.h>
 
 
-extern uint64_t fd; 
+extern uint64_t table_id; 
+extern int tables[MAX_TABLE + 1];
 
 void show_leaf_page_keys()
 {
@@ -297,13 +298,13 @@ void print_tree(void)
     }
 }
 
-void close_table(void)
+void close_table(int table_id)
 {
-    close(fd);
+    close(tables[table_id]);
 }
 
 // initialize datafile
-void init_table(int fd)
+void init_table(int table_id)
 {
     header_page_t header;
 
@@ -314,22 +315,54 @@ void init_table(int fd)
     make_free_page(&header);
 }
 
+// return the unique table id corresponding fd
+// binary search?
+int get_table_id(int fd)
+{
+    int i;
+    for(i = 1; i <= MAX_TABLE; i++)
+    {
+        if(tables[i] == fd)
+        {
+            return i;
+        }
+    }
+}
+
+// after opening a table, return it's unique table id
 int open_table(char * pathname)
 {
+    int fd, table_id;
+
+    if(strlen(pathname) > 20)
+    {
+        printf("data file's name is too long! it should be less than or equal to 20.\n");
+        return -1;
+    }
+
     fd = open(pathname, O_RDWR | O_CREAT | O_EXCL, 0644);
 
     if(fd != -1)
     {
-        printf("datafile (fd = %ld) is newly created!\n", fd);
-        init_table(fd);
+        table_id++;
+        if(table_id > 10)
+        {
+            printf("table number exceeds 10,,!\n");
+            close(fd);
+            return -1;
+        }
+        printf("datafile (table id = %ld) is newly created!\n", fd);
+        tables[table_id] = fd;
+        init_table(table_id);
     }
     else if((fd == -1) && (EEXIST == errno)) //data file already exists
     {
         fd = open(pathname, O_RDWR);
-        printf("datafile (fd = %ld) is opened!\n", fd);
+        printf("datafile (table id = %ld) is opened!\n", fd);
+        table_id = get_table_id(fd);
     }
     
-    return fd;
+    return table_id;
 }
 
 // find a possible leaf page containing a key

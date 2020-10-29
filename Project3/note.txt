@@ -1,3 +1,6 @@
 Project3 note
 
-1. changed file manager apis using table id
+Q.
+1. dependency check -> ptype.h
+2. hash insert/delete error : maybe caused by buf_write_page and buf_read_page?
+4. correctly unpin?

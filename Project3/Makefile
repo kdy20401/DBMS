@@ -2,7 +2,7 @@
 
 CC=gcc
 
-SRCDIR=src/
+SRC_DIR=src/
 INC=include/
 LIBS=lib/
 
@@ -10,18 +10,18 @@ LIBS=lib/
 # OBJS:=$(SRCS:.c=.o)
 
 # main source file
-TARGET_SRC:=$(SRCDIR)main.c
-TARGET_OBJ:=$(SRCDIR)main.o
+TARGET_SRC:=$(SRC_DIR)main.c
+TARGET_OBJ:=$(SRC_DIR)main.o
 
-OBJECTS = $(SRCDIR)main.o $(SRCDIR)diskbpt.o $(SRCDIR)file.o
+OBJECTS = $(SRC_DIR)main.o $(SRC_DIR)buffer.o $(SRC_DIR)file.o $(SRC_DIR)diskbpt.o
 
 # Include more files if you write another source file.
-SRCS_FOR_LIB:=$(SRCDIR)diskbpt.c $(SRCDIR)file.c
+SRCS_FOR_LIB:=$(SRC_DIR)diskbpt.c $(SRC_DIR)file.c $(SRC_DIR)buffer.c
 OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.c=.o)
 
 CFLAGS+= -g -fPIC -I $(INC)
 
-TARGET=main
+TARGET=$(SRC_DIR)main
 
 all: $(TARGET)
 
@@ -42,6 +42,8 @@ static_library:
 
 
 # dependency
-$(SRCDIR)diskbpt.o : $(SRCDIR)diskbpt.c $(INC)diskbpt.h $(INC)file.h 
-$(SRCDIR)file.o : $(SRCDIR)file.c $(INC)file.h
-$(SRCDIR)main.o : $(SRCDIR)main.c $(INC)diskbpt.h $(INC)file.h
+# diskbpt.h, file.h and buffer.h include ptype.h! -> is new dependency needed? -> no
+$(SRC_DIR)diskbpt.o : $(SRC_DIR)diskbpt.c $(INC)diskbpt.h $(INC)file.h $(INC)buffer.h $(INC)table.h 
+$(SRC_DIR)file.o : $(SRC_DIR)file.c $(INC)file.h $(INC)table.h
+$(SRC_DIR)buffer.o : $(SRC_DIR)buffer.c $(INC)buffer.h $(INC)file.h $(INC)table.h
+$(SRC_DIR)main.o : $(SRC_DIR)main.c $(INC)diskbpt.h $(INC)buffer.h

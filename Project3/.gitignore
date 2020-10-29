@@ -1,0 +1,8 @@
+note.txt
+.vscode
+.vscode/settings.json
+src/test_main.c
+src/test.c
+a.out
+make_datafile.c
+

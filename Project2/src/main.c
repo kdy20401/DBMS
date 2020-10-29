@@ -11,10 +11,8 @@ int main(int argc, char ** argv)
     char value[120];
     header_page_t header, tmp;
     char datafile[20] = "mydata.bin";
-    char datafile1[20] = "mydata1.bin";
     open_table(datafile); // fd 6
     
-    open_table(datafile1); // fd 7
 
     printf("> ");
     while (scanf("%c", &instruction) != EOF) {

@@ -1,6 +1,4 @@
 #folder
-.vscode/
-
 note.txt
 make_datafile.c
 src/test_main.c

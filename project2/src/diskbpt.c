@@ -320,7 +320,7 @@ int open_table(char * pathname)
 
     if(fd != -1)
     {
-        printf("datafile (fd = %ld) is newly created!\n", fd);
+        // printf("datafile (fd = %ld) is newly created!\n", fd);
         init_table(fd);
     }
     else if((fd == -1) && (EEXIST == errno)) //data file already exists
@@ -347,7 +347,7 @@ pagenum_t find_leaf_page(int64_t key)
     // there is no root
     if(header.root_page_num == 0)
     {
-        printf("there is no root\n");
+        // printf("there is no root\n");
         return -1;
     }
 
@@ -402,7 +402,7 @@ int db_find(int64_t key, char * ret_val)
 
     file_read_page(leaf_page_num, (page_t *)&leaf);
 
-    printf("finding a location of record in the leaf,,\n");
+    // printf("finding a location of record in the leaf,,\n");
     for(i = 0; i < leaf.num_key; i++)
     {
         if(leaf.records[i].key == key)
@@ -438,7 +438,7 @@ void start_new_tree(int64_t key, char * value)
     file_write_page(0, (page_t *)&header);
 
     file_write_page(root_page_num, (page_t *)&root);
-    printf("root is written in page %ld\n", header.root_page_num);
+    // printf("root is written in page %ld\n", header.root_page_num);
     
 }
 
@@ -450,10 +450,10 @@ void insert_into_leaf(pagenum_t leaf_page_num, int64_t key, char * value)
     file_read_page(leaf_page_num, (page_t *)&leaf);
 
     // printf("keys in the leaf :\n");
-    for(i = 0; i < leaf.num_key; i++)
-    {
-        printf("%ld ", leaf.records[i].key);
-    }
+    // for(i = 0; i < leaf.num_key; i++)
+    // {
+    //     printf("%ld ", leaf.records[i].key);
+    // }
     printf("\n");
     insertion_point = 0;
     while(insertion_point < leaf.num_key && leaf.records[insertion_point].key < key)
@@ -472,11 +472,11 @@ void insert_into_leaf(pagenum_t leaf_page_num, int64_t key, char * value)
 
 
     // printf("keys in the leaf after inserting :\n");
-    for(int i = 0; i < leaf.num_key; i++)
-    {
-        printf("%ld ", leaf.records[i].key);
-    }
-    printf("\n");
+    // for(int i = 0; i < leaf.num_key; i++)
+    // {
+    //     printf("%ld ", leaf.records[i].key);
+    // }
+    // printf("\n");
 
     file_write_page(leaf_page_num, (page_t *)&leaf);
 }
@@ -639,7 +639,7 @@ void insert_into_parent(internal_page_t * left, pagenum_t left_page_num, int key
     
     if(left->parent_page_num == 0)
     {
-        printf("insert into new root,,\n");
+        // printf("insert into new root,,\n");
         return insert_into_new_root(left, left_page_num, key, right, right_page_num);
     }
 

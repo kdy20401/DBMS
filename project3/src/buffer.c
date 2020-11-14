@@ -38,34 +38,33 @@ void init_hash(int size)
         }
         hash_table.directory[i]->fptr = NULL;
         hash_table.directory[i]->next = NULL;
-
     }
 
     // printf("hash table of size %d is made!\n", hash_table.table_size);
 }
 
 // hash function. key is the page number
-int hash(pagenum_t key, int hashtable_size)
+int hash(pagenum_t page_num, int hashtable_size)
 {
-    return key % hashtable_size;
+    return page_num % hashtable_size;
 }
 
 // find the bucket containing a frame pointer which has corresponding table id and page number
 // if the bucket exists, return the frame pointer
-frame * hash_find(int table_id, pagenum_t key, hashtable * table)
+frame * hash_find(int table_id, pagenum_t page_num, hashtable * table)
 {
     bucket * dummy;
     bucket * p;
     frame * fptr;
 
-    dummy = table->directory[hash(key, table->table_size)];
+    dummy = table->directory[hash(page_num, table->table_size)];
     p = dummy->next;
 
     while(p != NULL)
     {   
         fptr = p->fptr;
 
-        if(fptr->table_id == table_id && fptr->page_num == key)
+        if(fptr->table_id == table_id && fptr->page_num == page_num)
         {
             break;
         }
@@ -118,28 +117,16 @@ void hash_delete(frame * fptr, hashtable * table)
     q = table->directory[hash(page_num, table->table_size)]; //dummy
     p = q->next;
 
-    if(p == NULL)
-    {
-        // printf("directory is empty. only dummy exists,,\n");
-        return;
-    }
-
     while(p != NULL)
     {
         if(p->fptr->table_id == table_id && p->fptr->page_num == page_num)
         {
+            q->next = p->next;
+            free(p);
             break;
         }
         q = p;
         p = p->next;
-    }
-
-    // problem : once inserted to hash table but failed to delete it !!! ???
-
-    if(p != NULL)
-    {
-        q->next = p->next;
-        free(p); 
     }
 }
 
@@ -149,6 +136,7 @@ void shutdown_hash()
     // printf("removing hash table,,,\n");
     int i;
     bucket * dummy;
+    bucket * tmp;
 
     // deallocate every buckets in each directory rows
     for(i = 0; i < hash_table.table_size; i++)
@@ -157,11 +145,13 @@ void shutdown_hash()
 
         while(dummy->next != NULL)
         {
-            dummy->next = dummy->next->next;
-            free(dummy->next);
+            tmp = dummy->next;
+            dummy->next = tmp->next;
+            free(tmp);
         }
     }
 
+    // printf("deallocate every buckets in each dir rows finished!\n");
     // deallocate dummy bucket and finally directory
     for(i = 0; i < hash_table.table_size; i++)
     {

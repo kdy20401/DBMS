@@ -22,6 +22,7 @@ OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.c=.o)
 CFLAGS+= -g -fPIC -I $(INC)
 
 TARGET=$(SRC_DIR)main
+DATAFILE = $(SRC_DIR)table
 
 all: $(TARGET)
 
@@ -32,6 +33,7 @@ $(TARGET): $(OBJECTS)
 
 clean:
 	rm $(TARGET) $(OBJECTS) $(LIBS)*
+	rm $(DATAFILE)*
 
 library:
 	gcc -shared -Wl,-soname,libbpt.so -o $(LIBS)libbpt.so $(OBJS_FOR_LIB)

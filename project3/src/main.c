@@ -1,7 +1,34 @@
-#include "diskbpt.h"
-#include "buffer.h"
+#include "../include/diskbpt.h"
+#include "../include/buffer.h"
 #include <stdio.h>
 #include <stdlib.h>
+
+// int main()
+// {
+//     int t1,t2;
+//     char value[20];
+
+// 	init_db(1000);
+// 	t1 = open_table("a.db");
+// 	t2 = open_table("b.db");
+// 	printf("open_table fin\n");
+
+// 	for (int i = 0; i < 2000; ++i) {
+// 		if(db_insert(t1, i, "1") != 0)
+//         {
+//             printf("db_insert() failed\n");
+//         }
+//         if(db_insert(t2, i, "1") != 0)
+//         {
+//             printf("db_insert() failed\n");
+//         }
+// 	}
+//     printf("db insert() fin\n");
+
+// 	shutdown_db();
+//     printf("shutdown_db fin\n");
+//     return 0;
+// }
 
 int main(int argc, char ** argv)
 {
@@ -12,7 +39,7 @@ int main(int argc, char ** argv)
     char datafile[20];
 
     // initialize buffer and hash table
-    init_db(20);
+    init_db(1000);
 
     printf("first, open a datafile (o datafile)\n");
     printf("> ");
@@ -49,7 +76,11 @@ int main(int argc, char ** argv)
                 break;
             case 'q':
                 while (getchar() != (int)'\n');
-                shutdown_db();
+                
+                if(shutdown_db() != 0)
+                {
+                    printf("shutdown_db() failed\n");
+                }
                 return 0;
                 break;
             case 'p':
@@ -88,3 +119,4 @@ int main(int argc, char ** argv)
     }
     return 0;
 }
+

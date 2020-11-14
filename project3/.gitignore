@@ -1,0 +1,5 @@
+src/test.c
+src/make_datafile.c
+src/main2.c
+src/datafile*
+a.out

@@ -396,7 +396,6 @@ void print_tree(int table_id)
         return;
     }
 
-    // buf_read_page(table_id, header->root_page_num, (page_t *)&root);
     queue = NULL;
     enqueue(header.root_page_num);
 
@@ -483,7 +482,7 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
     // there is no root
     if(header.root_page_num == 0)
     {
-        printf("there is no root\n");
+        // printf("there is no root\n");
         return -1;
     }
 
@@ -545,7 +544,7 @@ int db_find(int table_id, int64_t key, char * ret_val)
     for(i = 0; i < leaf.num_key; i++)
     {
         if(leaf.records[i].key == key)
-        {
+        {   
             strcpy(ret_val, leaf.records[i].value);
             return 0;
         }
@@ -888,11 +887,12 @@ int db_insert(int table_id, int64_t key, char * value)
     pagenum_t leaf_page_num;
     header_page_t header;
     leaf_page_t leaf;
+    char tmp[120];
 
     // doesn't allow duplicate keys
-    if(db_find(table_id, key, value) != -1)
+    if(db_find(table_id, key, tmp) != -1)
     {
-        printf("oops, the key already exists in the tree!\n");
+        // printf("oops, the key already exists in the tree!\n");
         return -1;
     }
 

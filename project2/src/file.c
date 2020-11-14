@@ -39,7 +39,7 @@ pagenum_t make_free_page(header_page_t * header)
 
     for(i = 0; i < FREE_PAGE_NUM; i++)
     {
-        printf("free page(#%d) is created!!!!\n", start_free_page_num);
+        // printf("free page(#%d) is created!!!!\n", start_free_page_num);
         file_write_page(start_free_page_num, (page_t *)&tmp[i]);
         start_free_page_num++;
     }
@@ -61,13 +61,13 @@ pagenum_t file_alloc_page()
 
     if(free_page_num == 0)
     {
-        printf("there are no free pages. make a free page list,,\n");
+        // printf("there are no free pages. make a free page list,,\n");
         //make 10 new free pages
         free_page_num = make_free_page(&header);
     }
     
 
-    printf("get free pages from free page list,,\n");
+    // printf("get free pages from free page list,,\n");
     //get free pages from free page list
     free_page_t tmp;
     int next_free_page;

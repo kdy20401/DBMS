@@ -101,7 +101,7 @@ trx_node * find_trx_node(int trx_id)
 		target = target->next;
 	}
 
-	printf("there is no trx %d node in the table\n", trx_id);
+	// printf("there is no trx %d node in the table\n", trx_id);
 	return NULL;
 }
 
@@ -210,32 +210,37 @@ void trx_abort(int trx_id)
 	lock_t * p;
 	lock_t * q;
 
+	// printf("find_trx_node,,\n");
 	t = find_trx_node(trx_id);
 
 	// roll back all data
+	// printf("rollback,,,\n");
 	rollback(t);
 
 	// release all locks
 	p = NULL;
 	q = t->head;
 
+	// printf("release locks,,\n");
 	while(q != NULL)
 	{
 		p = q;
 		q = q->trx_next;
 		// if(p->lock_mode == SHARED)
 		// {
-			// printf("trx %d SHARED lock is released\n", p->trx_id);
+		// 	printf("trx %d SHARED lock is released\n", p->trx_id);
 		// }
 		// else if(p->lock_mode == EXCLUSIVE)
 		// {
-			// printf("trx %d EXCLUSIVE lock is released\n", p->trx_id);
+		// 	printf("trx %d EXCLUSIVE lock is released\n", p->trx_id);
 		// }
 		lock_release(p);
 	}
 
 	// remove transaction node
+	// printf("remove_from_trx_table,,,\n");
 	remove_from_trx_table(t);
+	// printf("trx_abort finished\n");
 }
 
 int trx_begin()
@@ -250,18 +255,22 @@ int trx_begin()
 
 	if(trx_id < 1)
 	{
+		release_trx_manager_latch();
 		return 0;
 	}
 	
 	node = create_trx_node(trx_id);
 	if(node == NULL)
 	{
+		release_trx_manager_latch();
 		return 0;
 	}
 
 	insert_into_trx_table(node);
 
 	release_trx_manager_latch();
+
+    // printf("trx %d begin\n", trx_id);
 
 	return trx_id;
 }
@@ -278,9 +287,13 @@ int trx_commit(int trx_id)
 	lock_t *p, *q;
 
 	target = find_trx_node(trx_id);
+	
+	// the transaction node is already removed by trx_abort
+	// so release all latches before return error code
 	if(target == NULL)
 	{
-		// printf("trx node is already removed?!\n");
+		release_trx_manager_latch();
+		release_lock_table_latch();
 		return 0;
 	}
 
@@ -299,6 +312,7 @@ int trx_commit(int trx_id)
 
 	release_trx_manager_latch();
 	release_lock_table_latch();
+    // printf("trx %d commit\n", trx_id);
 
 	return trx_id;
 }

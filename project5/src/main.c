@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 #define MAX_OPNUM 3
-#define TRHEAD_NUM 500
+#define TRHEAD_NUM 5
 #define MAX_RECORD 2
 #define DB_FIND 0
 #define DB_UPDATE 1
@@ -52,7 +52,7 @@ void * find_or_update_func(void * arg)
         {
             key = (rand() % (MAX_RECORD)) + 1;
 
-            printf("trx %d tries to update key %ld in table %d\n", trx_id, key, table_id);
+            // printf("trx %d tries to update key %ld in table %d\n", trx_id, key, table_id);
             if (db_update(table_id, key, value, trx_id) == -1)
             {
                 // printf("trx %d's update() is aborted at key %ld in table %d\n", trx_id, key, table_id);
@@ -61,13 +61,13 @@ void * find_or_update_func(void * arg)
                 pthread_mutex_unlock(&mutex);
                 pthread_exit(NULL);
             }
-            printf("trx %d update() success at key %ld value to %s in table %d\n", trx_id, key, value, table_id);
+            // printf("trx %d update() success at key %ld value to %s in table %d\n", trx_id, key, value, table_id);
         }
         else if(db_api == DB_FIND)
         {
             key = (rand() % (MAX_RECORD)) + 1;
 
-            printf("trx %d tries to find key %ld in table %d\n", trx_id, key, table_id);
+            // printf("trx %d tries to find key %ld in table %d\n", trx_id, key, table_id);
 
             if (db_find(table_id, key, ret_val, trx_id) == -1)
             {
@@ -77,7 +77,7 @@ void * find_or_update_func(void * arg)
                 pthread_mutex_unlock(&mutex);
                 pthread_exit(NULL);
             }
-            printf("trx %d find success at key %ld, value %s in table %d\n", trx_id, key, ret_val, table_id);
+            // printf("trx %d find success at key %ld, value %s in table %d\n", trx_id, key, ret_val, table_id);
         }
     }
 

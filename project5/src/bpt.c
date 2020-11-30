@@ -602,6 +602,8 @@ int nt_db_find(int table_id, int64_t key, char * ret_val)
 
 int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 {
+    // printf("trx %d tries to find key %ld in table %d\n", trx_id, key, table_id);
+
     pagenum_t leaf_page_num;
     leaf_page_t leaf;
     lock_t * record_lock;
@@ -642,6 +644,8 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 
     if(record_lock == NULL)
     {
+        // printf("trx %d's find() is aborted at key %ld in table %d\n", trx_id, key, table_id);
+
         return -1;
     }
 
@@ -657,11 +661,15 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     }
 
     release_page_latch(fptr);
+    // printf("trx %d find success at key %ld, value %s in table %d\n", trx_id, key, ret_val, table_id);
+
     return 0;
 }
 
 int db_update(int table_id, int64_t key, char * values, int trx_id)
 {
+    // printf("trx %d tries to update key %ld in table %d\n", trx_id, key, table_id);
+
     pagenum_t leaf_page_num;
     leaf_page_t leaf;
     frame * fptr;
@@ -701,6 +709,8 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 
     if(record_lock == NULL)
     {
+        // printf("trx %d's update() is aborted at key %ld in table %d\n", trx_id, key, table_id);
+
         return -1;
     }
 
@@ -723,6 +733,8 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     acquire_trx_manager_latch();
     insert_into_rollback_list(table_id, key, org_value, trx_id);
     release_trx_manager_latch();
+
+    // printf("trx %d update() success at key %ld value to %s in table %d\n", trx_id, key, values, table_id);
 
     return 0;
 }

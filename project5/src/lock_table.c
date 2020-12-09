@@ -153,7 +153,7 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	{
 		lock_obj->status = WAITING;
 	}
-	else if(pred->status == WORKING)
+	else
 	{
 		if(pred->trx_id == lock_obj->trx_id)
 		{

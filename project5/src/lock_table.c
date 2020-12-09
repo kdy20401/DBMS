@@ -149,11 +149,34 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// }
 
+	// if(pred->status == WAITING)
+	// {
+	// 	lock_obj->status = WAITING;
+	// }
+	// else if(pred->status == WORKING)
+	// {
+	// 	if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
+	// 	{
+	// 		lock_obj->status = WORKING;
+	// 	}
+	// 	else
+	// 	{
+	// 		if(pred->trx_id == lock_obj->trx_id)
+	// 		{
+	// 			lock_obj->status = WORKING;
+	// 		}
+	// 		else
+	// 		{
+	// 			lock_obj->status = WAITING;
+	// 		}
+	// 	}
+	// }
+
 	if(pred->status == WAITING)
 	{
 		lock_obj->status = WAITING;
 	}
-	else if(pred->status == WORKING)
+	else
 	{
 		if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
 		{
@@ -161,40 +184,9 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 		}
 		else
 		{
-			if(pred->trx_id == lock_obj->trx_id)
-			{
-				lock_obj->status = WORKING;
-			}
-			else
-			{
-				lock_obj->status = WAITING;
-			}
-			
+			lock_obj->status = WAITING;
 		}
 	}
-
-	// if(pred->status == WAITING)
-	// {
-	// 	lock_obj->status = WAITING;
-	// }
-	// else
-	// {
-	// 	if(pred->lock_mode == EXCLUSIVE)
-	// 	{
-	// 		lock_obj->status = WAITING;
-	// 	}
-	// 	else
-	// 	{
-	// 		if(lock_obj->lock_mode == EXCLUSIVE)
-	// 		{
-	// 			lock_obj->status = WAITING;
-	// 		}
-	// 		else
-	// 		{
-	// 			lock_obj->status = WORKING;
-	// 		}
-	// 	}	
-	// }
 }
 
 lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)

@@ -123,20 +123,29 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	}
 	else if(pred->status == WORKING)
 	{
-		if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
+		if(pred->trx_id == lock_obj->trx_id)
 		{
+			lock_obj->status = WORKING;	
+		}
+		else if(lock_obj->lock_mode == SHARED)
+		{
+			// when lock_obj's transaction is different from predecessor's transactioin
+			// the only case lock_obj can acquire a lock directly is when all predecessor locks are S locks
+			// simultaneously, lock_obj is S lock 
+			while(pred != NULL)
+			{
+				if(pred->lock_mode == EXCLUSIVE)
+				{
+					lock_obj->status = WAITING;
+					return;
+				}
+				pred = pred->prev;
+			}
 			lock_obj->status = WORKING;
 		}
-		else
+		else if(lock_obj->lock_mode == EXCLUSIVE)
 		{
-			if(pred->trx_id == lock_obj->trx_id)
-			{
-				lock_obj->status = WORKING;
-			}
-			else
-			{
-				lock_obj->status = WAITING;
-			}
+			lock_obj->status = WAITING;
 		}
 	}
 }
@@ -171,7 +180,7 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 	
 	// order? after abortion finished, decide lock's status
 	// so must be above insert_into_record_lock_list()
-	acquire_trx_manager_latch();
+	acquire_trx_manager_latch(); //needed?? -> may yes
 
 	// arrange record lock list and decide whether wait or work
 	insert_into_record_lock_list(b, lock_obj);

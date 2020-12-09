@@ -278,6 +278,7 @@ int trx_begin()
 // trx_commit() modifies record lock list and transaction table.
 // so should acquire lock table latch and transaction manager latch.
 // follow the order to prevent deadlock : lock table latch -> transaction manager latch
+// how about move acquire and release lock table latch into lock_release()?
 int trx_commit(int trx_id)
 {
 	acquire_lock_table_latch();

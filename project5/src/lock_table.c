@@ -149,28 +149,29 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// }
 
-	if(pred->status == WAITING)
-	{
-		lock_obj->status = WAITING;
-	}
-	else if(pred->status == WORKING)
-	{
-		if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
-		{
-			lock_obj->status = WORKING;
-		}
-		else
-		{
-			if(pred->trx_id == lock_obj->trx_id)
-			{
-				lock_obj->status = WORKING;
-			}
-			else
-			{
-				lock_obj->status = WAITING;
-			}
-		}
-	}
+	// original code that committed before deadline. are these right?
+	// if(pred->status == WAITING)
+	// {
+	// 	lock_obj->status = WAITING;
+	// }
+	// else if(pred->status == WORKING)
+	// {
+	// 	if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
+	// 	{
+	// 		lock_obj->status = WORKING;
+	// 	}
+	// 	else
+	// 	{
+	// 		if(pred->trx_id == lock_obj->trx_id)
+	// 		{
+	// 			lock_obj->status = WORKING;
+	// 		}
+	// 		else
+	// 		{
+	// 			lock_obj->status = WAITING;
+	// 		}
+	// 	}
+	// }
 
 	// // works well except stress1(det) stress2(det + nondet)
 	// if(pred->status == WAITING)
@@ -189,80 +190,81 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// }
 
-	// // even s lock test fails
-	// if(pred->status == WAITING)
-	// {
-	// 	lock_obj->status = WAITING;
-	// }
-	// else
-	// {
-	// 	if(pred->lock_mode == EXCLUSIVE)
-	// 	{
-	// 		if(pred->trx_id == lock_obj->trx_id)
-	// 		{
-	// 			lock_obj->status = WORKING;
-	// 		}
-	// 		else
-	// 		{
-	// 			lock_obj->status = WAITING;
-	// 		}
+	// i think these are right whey 2 or more operations can be
+	// executed by one transaction to one record,,
+	if(pred->status == WAITING)
+	{
+		lock_obj->status = WAITING;
+	}
+	else
+	{
+		if(pred->lock_mode == EXCLUSIVE)
+		{
+			if(pred->trx_id == lock_obj->trx_id)
+			{
+				lock_obj->status = WORKING;
+			}
+			else
+			{
+				lock_obj->status = WAITING;
+			}
 			
-	// 	}
-	// 	else
-	// 	{
-	// 		if(pred->trx_id == lock_obj->trx_id)
-	// 		{
-	// 			if(lock_obj->lock_mode == SHARED)
-	// 			{
-	// 				lock_obj->status = WORKING;
-	// 			}
-	// 			else
-	// 			{
-	// 				while(pred != NULL)
-	// 				{
-	// 					if(pred->trx_id != lock_obj->trx_id)
-	// 					{
-	// 						lock_obj->status = WAITING;
-	// 						break;
-	// 					}
-	// 					pred = pred->prev;
-	// 				}
+		}
+		else
+		{
+			if(pred->trx_id == lock_obj->trx_id)
+			{
+				if(lock_obj->lock_mode == SHARED)
+				{
+					lock_obj->status = WORKING;
+				}
+				else
+				{
+					while(pred != NULL)
+					{
+						if(pred->trx_id != lock_obj->trx_id)
+						{
+							lock_obj->status = WAITING;
+							break;
+						}
+						pred = pred->prev;
+					}
 
-	// 				if(pred == NULL)
-	// 				{
-	// 					lock_obj->status = WORKING;
-	// 				}
-	// 			}
-	// 		}
-	// 		else
-	// 		{
-	// 			if(lock_obj->lock_mode == SHARED)
-	// 			{
-	// 				while(pred != NULL)
-	// 				{
-	// 					if(pred->lock_mode == EXCLUSIVE)
-	// 					{
-	// 						lock_obj->status = WAITING;
-	// 						break;
-	// 					}
-	// 					pred = pred->prev;
-	// 				}
+					if(pred == NULL)
+					{
+						lock_obj->status = WORKING;
+					}
+				}
+			}
+			else
+			{
+				if(lock_obj->lock_mode == SHARED)
+				{
+					while(pred != NULL)
+					{
+						if(pred->lock_mode == EXCLUSIVE)
+						{
+							lock_obj->status = WAITING;
+							break;
+						}
+						pred = pred->prev;
+					}
 
-	// 				if(pred == NULL)
-	// 				{
-	// 					lock_obj->status = WORKING;
-	// 				}
-	// 			}
-	// 			else
-	// 			{
-	// 				lock_obj->status = WAITING;
-	// 			}
+					if(pred == NULL)
+					{
+						lock_obj->status = WORKING;
+					}
+				}
+				else
+				{
+					lock_obj->status = WAITING;
+				}
 				
-	// 		}
+			}
 			
-	// 	}
+		}
 		
-	// }
+	}
 	
 
 }

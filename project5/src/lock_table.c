@@ -172,21 +172,98 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// }
 
+	// // works well except stress1(det) stress2(det + nondet)
+	// if(pred->status == WAITING)
+	// {
+	// 	lock_obj->status = WAITING;
+	// }
+	// else
+	// {
+	// 	if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
+	// 	{
+	// 		lock_obj->status = WORKING;
+	// 	}
+	// 	else
+	// 	{
+	// 		lock_obj->status = WAITING;
+	// 	}
+	// }
+
 	if(pred->status == WAITING)
 	{
 		lock_obj->status = WAITING;
 	}
 	else
 	{
-		if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
+		if(pred->lock_mode == EXCLUSIVE)
 		{
-			lock_obj->status = WORKING;
+			if(pred->trx_id == lock_obj->trx_id)
+			{
+				lock_obj->status = WORKING;
+			}
+			else
+			{
+				lock_obj->status = WAITING;
+			}
+			
 		}
 		else
 		{
-			lock_obj->status = WAITING;
+			if(pred->trx_id == lock_obj->trx_id)
+			{
+				if(lock_obj->lock_mode == SHARED)
+				{
+					lock_obj->status = WORKING;
+				}
+				else
+				{
+					while(pred != NULL)
+					{
+						if(pred->trx_id != lock_obj->trx_id)
+						{
+							lock_obj->status = WAITING;
+							break;
+						}
+						pred = pred->prev;
+					}
+
+					if(pred == NULL)
+					{
+						lock_obj->status = WORKING;
+					}
+				}
+			}
+			else
+			{
+				if(lock_obj->lock_mode == SHARED)
+				{
+					while(pred != NULL)
+					{
+						if(pred->lock_mode == EXCLUSIVE)
+						{
+							lock_obj->status = WAITING;
+							break;
+						}
+						pred = pred->prev;
+					}
+
+					if(pred == NULL)
+					{
+						lock_obj->status = WORKING;
+					}
+				}
+				else
+				{
+					lock_obj->status = WAITING;
+				}
+				
+			}
+			
 		}
+		
 	}
+	
+
 }
 
 lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
@@ -377,26 +454,55 @@ int lock_release(lock_t * lock_obj)
 	// }
 	// // if not, nothing to do. predecessor will wake up successor
 	
+	// // works well except stress1(det) stress2(det + nondet)
+	// // if lock_obj is the head of the record lock list
+	// if(lock_obj->next != NULL && lock_obj->prev == NULL)
+	// {
+	// 	succ = lock_obj->next;
 
-	if(lock_obj->next != NULL && lock_obj->prev == NULL)
+	// 	// if successor is an exclusive lock, just wakes him up
+	// 	if(succ->lock_mode == EXCLUSIVE)
+	// 	{
+	// 		pthread_cond_signal(&(succ->cond));
+	// 	}
+	// 	// if successor is a shared lock, wakes up all successive S locks
+	// 	else
+	// 	{
+	// 		while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
+	// 		{
+	// 			pthread_cond_signal(&(succ->cond));
+	// 			succ = succ->next;
+	// 		}
+	// 	}
+	// }	
+	// if not, nothing to do. predecessor will wake up successor
+
+
+	if(lock_obj->next != NULL)
 	{
-		succ = lock_obj->next;
-		
-		if(succ->lock_mode == EXCLUSIVE)
+		if((lock_obj->prev == NULL) || ((lock_obj->prev != NULL) && (lock_obj->prev->trx_id == lock_obj->next->trx_id)))
 		{
-			pthread_cond_signal(&(succ->cond));
-		}
-		else
-		{
-			// wakes up all successive S locks
-			while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
+			succ = lock_obj->next;
+			succ_trx_id = succ->trx_id;
+
+			if(succ->lock_mode == EXCLUSIVE)
 			{
-				pthread_cond_signal(&(succ->cond));
-				succ = succ->next;
+				if(succ->status == WAITING)
+				{
+					pthread_cond_signal(&(succ->cond));
+				}
+			}
+			else
+			{
+				// wakes up all successive S locks
+				while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
+				{
+					pthread_cond_signal(&(succ->cond));
+					succ = succ->next;
+				}
 			}
 		}
-	}	
-	// if not, nothing to do. predecessor will wake up successor
+	}
 
 	free(lock_obj);
 

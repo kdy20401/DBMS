@@ -483,32 +483,38 @@ int lock_release(lock_t * lock_obj)
 	// }	
 	// if not, nothing to do. predecessor will wake up successor
 
-
-	
-	if(lock_obj->next != NULL)
+	if(lock_obj->prev != NULL && lock_obj->next != NULL)
 	{
-		if((lock_obj->prev == NULL) || ((lock_obj->prev != NULL) && (lock_obj->prev->trx_id == lock_obj->next->trx_id) && lock_obj->next->status == WAITING))
+		if(lock_obj->prev->trx_id == lock_obj->next->trx_id)
 		{
-			succ = lock_obj->next;
-
-			if(succ->lock_mode == EXCLUSIVE)
+			if(lock_obj->prev->status == WORKING && lock_obj->next->status == WAITING)
 			{
-				if(succ->status == WAITING)
-				{
-					pthread_cond_signal(&(succ->cond));
-				}
-			}
-			else
-			{
-				// wakes up all successive S locks
-				while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
-				{
-					pthread_cond_signal(&(succ->cond));
-					succ = succ->next;
-				}
+				pthread_cond_signal(&(succ->cond));
 			}
 		}
 	}
+
+	if(lock_obj->prev == NULL && lock_obj->next != NULL)
+	{
+		succ = lock_obj->next;
+		if(succ->lock_mode == EXCLUSIVE)
+		{
+			if(succ->status == WAITING)
+			{
+				pthread_cond_signal(&(succ->cond));
+			}
+		}
+		else
+		{
+			// wakes up all successive S locks
+			while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
+			{
+				pthread_cond_signal(&(succ->cond));
+				succ = succ->next;
+			}
+		}
+	}
+
 
 	free(lock_obj);
 

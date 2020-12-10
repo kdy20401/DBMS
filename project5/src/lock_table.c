@@ -483,16 +483,16 @@ int lock_release(lock_t * lock_obj)
 	// }	
 	// if not, nothing to do. predecessor will wake up successor
 
-	if(lock_obj->prev != NULL && lock_obj->next != NULL)
-	{
-		if(lock_obj->prev->trx_id == lock_obj->next->trx_id)
-		{
-			if(lock_obj->prev->status == WORKING && lock_obj->next->status == WAITING)
-			{
-				pthread_cond_signal(&(succ->cond));
-			}
-		}
-	}
+	// if(lock_obj->prev != NULL && lock_obj->next != NULL)
+	// {
+	// 	if(lock_obj->prev->trx_id == lock_obj->next->trx_id)
+	// 	{
+	// 		if(lock_obj->prev->status == WORKING && lock_obj->next->status == WAITING)
+	// 		{
+	// 			pthread_cond_signal(&(succ->cond));
+	// 		}
+	// 	}
+	// }
 
 	if(lock_obj->prev == NULL && lock_obj->next != NULL)
 	{

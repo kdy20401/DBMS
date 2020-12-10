@@ -5,7 +5,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 
-#define LOCK_TABLE_SIZE 101
+#define LOCK_TABLE_SIZE 31
 
 // lock mode
 #define SHARED 0

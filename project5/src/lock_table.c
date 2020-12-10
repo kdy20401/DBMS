@@ -228,7 +228,6 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 						}
 						pred = pred->prev;
 					}
-// 
 					if(pred == NULL)
 					{
 						lock_obj->status = WORKING;

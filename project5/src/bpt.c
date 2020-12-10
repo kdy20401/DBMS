@@ -649,8 +649,8 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     }
 
     // after acquiring a record lock, read a record and finally release page latch
-    // fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-    // release_page_latch(fptr);
+    fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
+    release_page_latch(fptr);
 
     for(i = 0; i < leaf.num_key; i++)
     {

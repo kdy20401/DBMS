@@ -400,7 +400,7 @@ int lock_release(lock_t * lock_obj)
 
 	if(lock_obj->next != NULL)
 	{
-		if((lock_obj->prev == NULL) || ((lock_obj->prev != NULL) && (lock_obj->prev->trx_id == lock_obj->next->trx_id)))
+		if((lock_obj->prev == NULL))
 		{
 			succ = lock_obj->next;
 			succ_trx_id = succ->trx_id;

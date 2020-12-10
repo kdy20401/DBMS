@@ -220,40 +220,42 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 				}
 				else
 				{
-					while(pred != NULL)
-					{
-						if(pred->trx_id != lock_obj->trx_id)
-						{
-							lock_obj->status = WAITING;
-							break;
-						}
-						pred = pred->prev;
-					}
+					// while(pred != NULL)
+					// {
+					// 	if(pred->trx_id != lock_obj->trx_id)
+					// 	{
+					// 		lock_obj->status = WAITING;
+					// 		break;
+					// 	}
+					// 	pred = pred->prev;
+					// }
 
-					if(pred == NULL)
-					{
-						lock_obj->status = WORKING;
-					}
+					// if(pred == NULL)
+					// {
+					// 	lock_obj->status = WORKING;
+					// }
+					lock_obj->status = WORKING;
 				}
 			}
 			else
 			{
 				if(lock_obj->lock_mode == SHARED)
 				{
-					while(pred != NULL)
-					{
-						if(pred->lock_mode == EXCLUSIVE)
-						{
-							lock_obj->status = WAITING;
-							break;
-						}
-						pred = pred->prev;
-					}
+					// while(pred != NULL)
+					// {
+					// 	if(pred->lock_mode == EXCLUSIVE)
+					// 	{
+					// 		lock_obj->status = WAITING;
+					// 		break;
+					// 	}
+					// 	pred = pred->prev;
+					// }
 
-					if(pred == NULL)
-					{
-						lock_obj->status = WORKING;
-					}
+					// if(pred == NULL)
+					// {
+					// 	lock_obj->status = WORKING;
+					// }
+					lock_obj->status = WORKING;
 				}
 				else
 				{

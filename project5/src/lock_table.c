@@ -511,26 +511,23 @@ int lock_release(lock_t * lock_obj)
 	// 		}
 	// 	}
 	// }
+	succ = lock_obj->next;
 
-
-	flag = 0;
-
-	if(lock_obj->next != NULL && lock_obj->prev == NULL)
+	if(succ == NULL)
 	{
-		succ = lock_obj->next;
-		succ_trx_id = succ->trx_id;
+		free(lock_obj);
+		return 0;
+	}
 
-		if(succ->status == WAITING)
+	if(succ->lock_mode == SHARED)
+	{
+		if(lock_obj->prev == NULL)
 		{
-			if(succ->lock_mode == EXCLUSIVE)
-			{
-				pthread_cond_signal(&(succ->cond));
-			}
-			else
+			if(succ->status == WAITING)
 			{
 				while(succ != NULL)
 				{
-					if(succ->status == WAITING && succ->lock_mode == SHARED)
+					if(succ->lock_mode == SHARED)
 					{
 						pthread_cond_signal(&(succ->cond));
 					}
@@ -541,27 +538,43 @@ int lock_release(lock_t * lock_obj)
 					succ = succ->next;
 				}
 			}
-		}
-		else
-		{
-			if(succ->lock_mode == SHARED)
+			else
 			{
-				lock_t * next = succ->next;
+				lock_t * succsucc;
+				succ_trx_id = succ->trx_id;
+				succsucc = succ->next;
 
-				while(next != NULL && next->trx_id == succ_trx_id)
+				while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
 				{
-					if(next->lock_mode == EXCLUSIVE && next->status == WAITING)
+					if(succsucc->lock_mode == EXCLUSIVE)
 					{
-						pthread_cond_signal(&(next->cond));
+						pthread_cond_signal(&(succsucc->cond));
 						break;
 					}
-					next = next->next;
+					succsucc = succsucc->next;
 				}
 			}
 		}
 	}
-	free(lock_obj);
+	else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
+	{
+		if(lock_obj->prev == NULL)
+		{
+			pthread_cond_signal(&(succ->cond));
+		}
+		else
+		{
+			if(lock_obj->prev->trx_id == succ->trx_id)
+			{
+				if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
+				{
+					pthread_cond_signal(&(succ->cond));
+				}
+			}
+		}
+	}
 
+	free(lock_obj);
 	return 0;
 }
 

@@ -762,7 +762,6 @@ void start_new_tree(int table_id, int64_t key, char * value)
     buf_write_page(table_id, 0, (page_t *)&header);
 
     buf_write_page(table_id, root_page_num, (page_t *)&root);
-    // printf("root is written in page %ld\n", header.root_page_num);
 }
 
 void insert_into_leaf(int table_id, pagenum_t leaf_page_num, int64_t key, char * value)

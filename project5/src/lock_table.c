@@ -117,37 +117,6 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	sentinel->tail = lock_obj;
 	pred = lock_obj->prev;
 
-	// if(pred->status == WAITING)
-	// {
-	// 	lock_obj->status = WAITING;
-	// }
-	// else if(pred->status == WORKING)
-	// {
-	// 	if(pred->trx_id == lock_obj->trx_id)
-	// 	{
-	// 		lock_obj->status = WORKING;	
-	// 	}
-	// 	else if(lock_obj->lock_mode == SHARED)
-	// 	{
-	// 		// when lock_obj's transaction is different from predecessor's transactioin
-	// 		// the only case lock_obj can acquire a lock directly is when all predecessor locks are S locks
-	// 		// simultaneously, lock_obj is S lock 
-	// 		while(pred != NULL)
-	// 		{
-	// 			if(pred->lock_mode == EXCLUSIVE)
-	// 			{
-	// 				lock_obj->status = WAITING;
-	// 				return;
-	// 			}
-	// 			pred = pred->prev;
-	// 		}
-	// 		lock_obj->status = WORKING;
-	// 	}
-	// 	else if(lock_obj->lock_mode == EXCLUSIVE)
-	// 	{
-	// 		lock_obj->status = WAITING;
-	// 	}
-	// }
 
 	// original code that committed before deadline. are these right?
 	// if(pred->status == WAITING)
@@ -173,97 +142,92 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// }
 
-	// // works well except stress1(det) stress2(det + nondet)
-	// if(pred->status == WAITING)
-	// {
-	// 	lock_obj->status = WAITING;
-	// }
-	// else
-	// {
-	// 	if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
-	// 	{
-	// 		lock_obj->status = WORKING;
-	// 	}
-	// 	else
-	// 	{
-	// 		lock_obj->status = WAITING;
-	// 	}
-	// }
-
-	// i think these are right whey 2 or more operations can be
-	// executed by one transaction to one record,,
+	// when one transaction can execute one opration(db_find() or db_update()) to one record
 	if(pred->status == WAITING)
 	{
 		lock_obj->status = WAITING;
 	}
 	else
 	{
-		if(pred->lock_mode == EXCLUSIVE)
+		if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
 		{
-			if(pred->trx_id == lock_obj->trx_id)
-			{
-				lock_obj->status = WORKING;
-			}
-			else
-			{
-				lock_obj->status = WAITING;
-			}
+			lock_obj->status = WORKING;
 		}
 		else
 		{
-			if(pred->trx_id == lock_obj->trx_id)
-			{
-				if(lock_obj->lock_mode == SHARED)
-				{
-					lock_obj->status = WORKING;
-				}
-				else
-				{
-					while(pred != NULL)
-					{
-						if(pred->trx_id != lock_obj->trx_id)
-						{
-							lock_obj->status = WAITING;
-							break;
-						}
-						pred = pred->prev;
-					}
-					if(pred == NULL)
-					{
-						lock_obj->status = WORKING;
-					}
-				}
-			}
-			else
-			{
-				if(lock_obj->lock_mode == SHARED)
-				{
-					while(pred != NULL)
-					{
-						if(pred->lock_mode == EXCLUSIVE)
-						{
-							lock_obj->status = WAITING;
-							break;
-						}
-						pred = pred->prev;
-					}
-
-					if(pred == NULL)
-					{
-						lock_obj->status = WORKING;
-					}
-				}
-				else
-				{
-					lock_obj->status = WAITING;
-				}
-				
-			}
-			
+			lock_obj->status = WAITING;
 		}
-		
 	}
-	
+
+	// // when one transaction can execute two or more operations(db_find() or db_update()) to one record
+	// if(pred->status == WAITING)
+	// {
+	// 	lock_obj->status = WAITING;
+	// }
+	// else
+	// {
+	// 	if(pred->lock_mode == EXCLUSIVE)
+	// 	{
+	// 		if(pred->trx_id == lock_obj->trx_id)
+	// 		{
+	// 			lock_obj->status = WORKING;
+	// 		}
+	// 		else
+	// 		{
+	// 			lock_obj->status = WAITING;
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		if(pred->trx_id == lock_obj->trx_id)
+	// 		{
+	// 			if(lock_obj->lock_mode == SHARED)
+	// 			{
+	// 				lock_obj->status = WORKING;
+	// 			}
+	// 			else
+	// 			{
+	// 				while(pred != NULL)
+	// 				{
+	// 					if(pred->trx_id != lock_obj->trx_id)
+	// 					{
+	// 						lock_obj->status = WAITING;
+	// 						break;
+	// 					}
+	// 					pred = pred->prev;
+	// 				}
+	// 				if(pred == NULL)
+	// 				{
+	// 					lock_obj->status = WORKING;
+	// 				}
+	// 			}
+	// 		}
+	// 		else
+	// 		{
+	// 			if(lock_obj->lock_mode == SHARED)
+	// 			{
+	// 				while(pred != NULL)
+	// 				{
+	// 					if(pred->lock_mode == EXCLUSIVE)
+	// 					{
+	// 						lock_obj->status = WAITING;
+	// 						break;
+	// 					}
+	// 					pred = pred->prev;
+	// 				}
+
+	// 				if(pred == NULL)
+	// 				{
+	// 					lock_obj->status = WORKING;
+	// 				}
+	// 			}
+	// 			else
+	// 			{
+	// 				lock_obj->status = WAITING;
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 }
 
@@ -358,7 +322,7 @@ int lock_release(lock_t * lock_obj)
 {
 	// printf("release trx %d lock mode %d lock!\n", lock_obj->trx_id, lock_obj->lock_mode);
 	lt_bucket * sentinel;
-	lock_t * succ;
+	lock_t *succ, *pred;
 	int succ_trx_id, flag;
 
 	sentinel = lock_obj->sentinel;
@@ -393,7 +357,6 @@ int lock_release(lock_t * lock_obj)
 
 	// // original code committed before deadline
 	// flag = 0;
-
 	// if(lock_obj->next != NULL)
 	// {
 	// 	if((lock_obj->prev == NULL))
@@ -456,122 +419,98 @@ int lock_release(lock_t * lock_obj)
 	// }
 	// if not, nothing to do. predecessor will wake up successor
 	
-	// // works well except stress1(det) stress2(det + nondet)
-	// // if lock_obj is the head of the record lock list
-	// if(lock_obj->next != NULL && lock_obj->prev == NULL)
-	// {
-	// 	succ = lock_obj->next;
 
-	// 	// if successor is an exclusive lock, just wakes him up
-	// 	if(succ->lock_mode == EXCLUSIVE)
-	// 	{
-	// 		pthread_cond_signal(&(succ->cond));
-	// 	}
-	// 	// if successor is a shared lock, wakes up all successive S locks
-	// 	else
-	// 	{
-	// 		while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
-	// 		{
-	// 			pthread_cond_signal(&(succ->cond));
-	// 			succ = succ->next;
-	// 		}
-	// 	}
-	// }	
-	// if not, nothing to do. predecessor will wake up successor
-
-	// if(lock_obj->prev != NULL && lock_obj->next != NULL)
-	// {
-	// 	if(lock_obj->prev->trx_id == lock_obj->next->trx_id)
-	// 	{
-	// 		if(lock_obj->prev->status == WORKING && lock_obj->next->status == WAITING)
-	// 		{
-	// 			pthread_cond_signal(&(succ->cond));
-	// 		}
-	// 	}
-	// }
-
-	// if(lock_obj->prev == NULL && lock_obj->next != NULL)
-	// {
-	// 	succ = lock_obj->next;
-	// 	if(succ->lock_mode == EXCLUSIVE)
-	// 	{
-	// 		if(succ->status == WAITING)
-	// 		{
-	// 			pthread_cond_signal(&(succ->cond));
-	// 		}
-	// 	}
-	// 	else
-	// 	{
-	// 		// wakes up all successive S locks
-	// 		while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
-	// 		{
-	// 			pthread_cond_signal(&(succ->cond));
-	// 			succ = succ->next;
-	// 		}
-	// 	}
-	// }
+	// when one transaction can execute one opration(db_find() or db_update()) to one record
+	pred = lock_obj->prev;
 	succ = lock_obj->next;
 
-	if(succ == NULL)
+	if(pred == NULL && succ != NULL)
 	{
-		free(lock_obj);
-		return 0;
-	}
-
-	if(succ->lock_mode == SHARED)
-	{
-		if(lock_obj->prev == NULL)
-		{
-			if(succ->status == WAITING)
-			{
-				while(succ != NULL)
-				{
-					if(succ->lock_mode == SHARED)
-					{
-						pthread_cond_signal(&(succ->cond));
-					}
-					else
-					{
-						break;
-					}
-					succ = succ->next;
-				}
-			}
-			else
-			{
-				lock_t * succsucc;
-				succ_trx_id = succ->trx_id;
-				succsucc = succ->next;
-
-				while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
-				{
-					if(succsucc->lock_mode == EXCLUSIVE)
-					{
-						pthread_cond_signal(&(succsucc->cond));
-						break;
-					}
-					succsucc = succsucc->next;
-				}
-			}
-		}
-	}
-	else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
-	{
-		if(lock_obj->prev == NULL)
+		if(succ->lock_mode == EXCLUSIVE)
 		{
 			pthread_cond_signal(&(succ->cond));
 		}
-		else
+		
+		if(succ->lock_mode == SHARED && succ->status == WAITING)
 		{
-			if(lock_obj->prev->trx_id == succ->trx_id)
+			while(succ != NULL)
 			{
-				if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
+				if(succ->lock_mode == SHARED)
 				{
 					pthread_cond_signal(&(succ->cond));
 				}
+				else
+				{
+					break;
+				}
+				succ = succ->next;
 			}
 		}
 	}
+
+
+	// // when one transaction can execute two or more operations(db_find() or db_update()) to one record
+	// succ = lock_obj->next;
+	// if(succ == NULL)
+	// {
+	// 	free(lock_obj);
+	// 	return 0;
+	// }
+
+	// if(succ->lock_mode == SHARED)
+	// {
+	// 	if(lock_obj->prev == NULL)
+	// 	{
+	// 		if(succ->status == WAITING)
+	// 		{
+	// 			while(succ != NULL)
+	// 			{
+	// 				if(succ->lock_mode == SHARED)
+	// 				{
+	// 					pthread_cond_signal(&(succ->cond));
+	// 				}
+	// 				else
+	// 				{
+	// 					break;
+	// 				}
+	// 				succ = succ->next;
+	// 			}
+	// 		}
+	// 		else
+	// 		{
+	// 			lock_t * succsucc;
+	// 			succ_trx_id = succ->trx_id;
+	// 			succsucc = succ->next;
+
+	// 			while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
+	// 			{
+	// 				if(succsucc->lock_mode == EXCLUSIVE)
+	// 				{
+	// 					pthread_cond_signal(&(succsucc->cond));
+	// 					break;
+	// 				}
+	// 				succsucc = succsucc->next;
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
+	// {
+	// 	if(lock_obj->prev == NULL)
+	// 	{
+	// 		pthread_cond_signal(&(succ->cond));
+	// 	}
+	// 	else
+	// 	{
+	// 		if(lock_obj->prev->trx_id == succ->trx_id)
+	// 		{
+	// 			if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
+	// 			{
+	// 				pthread_cond_signal(&(succ->cond));
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	free(lock_obj);
 	return 0;

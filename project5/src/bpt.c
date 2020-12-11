@@ -753,7 +753,6 @@ void start_new_tree(int table_id, int64_t key, char * value)
     
     root.right_sibling_page_num = 0;
 
-    // printf("allocating page,,\n");
     root_page_num = buf_alloc_page(table_id);
 
     buf_read_page(table_id, 0, (page_t *)&header); // why not to just write? -> overwrite problem

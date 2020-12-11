@@ -1067,6 +1067,7 @@ void insert_into_leaf_after_splitting(int table_id, leaf_page_t * leaf, pagenum_
 // return 0 when sucess otherwise, return -1
 int db_insert(int table_id, int64_t key, char * value)
 {
+    printf("db_insert()!\n");
     pagenum_t leaf_page_num;
     header_page_t header;
     leaf_page_t leaf;

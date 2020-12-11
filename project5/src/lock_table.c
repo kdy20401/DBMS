@@ -142,7 +142,7 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// }
 
-	// when one transaction can execute one opration(db_find() or db_update()) to one record
+	// when one transaction can execute only one opration(db_find() or db_update()) to one record
 	if(pred->status == WAITING)
 	{
 		lock_obj->status = WAITING;
@@ -426,7 +426,7 @@ int lock_release(lock_t * lock_obj)
 
 	if(pred == NULL && succ != NULL)
 	{
-		if(succ->lock_mode == EXCLUSIVE)
+		if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
 		{
 			pthread_cond_signal(&(succ->cond));
 		}

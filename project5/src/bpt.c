@@ -476,7 +476,7 @@ pagenum_t nt_find_leaf_page(int table_id, int64_t key)
     // there is no root
     if(header.root_page_num == 0)
     {
-        // printf("there is no root\n");
+        printf("there is no root\n");
         return -1;
     }
 

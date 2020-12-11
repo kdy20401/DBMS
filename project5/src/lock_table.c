@@ -430,8 +430,7 @@ int lock_release(lock_t * lock_obj)
 		{
 			pthread_cond_signal(&(succ->cond));
 		}
-		
-		if(succ->lock_mode == SHARED && succ->status == WAITING)
+		else if(succ->lock_mode == SHARED && succ->status == WAITING)
 		{
 			while(succ != NULL)
 			{
@@ -448,27 +447,6 @@ int lock_release(lock_t * lock_obj)
 		}
 	}
 
-	if(pred != NULL && succ != NULL)
-	{
-		if(pred->lock_mode == SHARED && pred->status == WORKING)
-		{
-			if(succ->lock_mode == SHARED && pred->status == WAITING)
-			{
-				while(succ != NULL)
-				{
-					if(succ->lock_mode == SHARED)
-					{
-						pthread_cond_signal(&(succ->cond));
-					}
-					else
-					{
-						break;
-					}
-					succ = succ->next;
-				}
-			}
-		}
-	}
 	// // when one transaction can execute two or more operations(db_find() or db_update()) to one record
 	// succ = lock_obj->next;
 	// if(succ == NULL)

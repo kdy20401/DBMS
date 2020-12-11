@@ -420,7 +420,7 @@ int lock_release(lock_t * lock_obj)
 	// if not, nothing to do. predecessor will wake up successor
 	
 
-	// when one transaction can execute one opration(db_find() or db_update()) to one record
+	// // when one transaction can execute one opration(db_find() or db_update()) to one record
 	pred = lock_obj->prev;
 	succ = lock_obj->next;
 

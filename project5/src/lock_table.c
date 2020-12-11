@@ -147,7 +147,7 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	{
 		lock_obj->status = WAITING;
 	}
-	else
+	else if(pred->status == WORKING)
 	{
 		if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
 		{
@@ -424,7 +424,7 @@ int lock_release(lock_t * lock_obj)
 	pred = lock_obj->prev;
 	succ = lock_obj->next;
 
-	if(sentinel->head == lock_obj && succ != NULL)
+	if(pred == NULL && succ != NULL)
 	{
 		if(succ->lock_mode == EXCLUSIVE)
 		{

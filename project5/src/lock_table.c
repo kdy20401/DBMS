@@ -424,7 +424,7 @@ int lock_release(lock_t * lock_obj)
 	pred = lock_obj->prev;
 	succ = lock_obj->next;
 
-	if(pred == NULL && succ != NULL)
+	if(sentinel->head == lock_obj && succ != NULL)
 	{
 		if(succ->lock_mode == EXCLUSIVE)
 		{

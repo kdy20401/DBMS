@@ -143,91 +143,91 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// }
 
 	// when one transaction can execute only one opration(db_find() or db_update()) to one record
-	if(pred->status == WAITING)
-	{
-		lock_obj->status = WAITING;
-	}
-	else if(pred->status == WORKING)
-	{
-		if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
-		{
-			lock_obj->status = WORKING;
-		}
-		else
-		{
-			lock_obj->status = WAITING;
-		}
-	}
-
-	// // when one transaction can execute two or more operations(db_find() or db_update()) to one record
 	// if(pred->status == WAITING)
 	// {
 	// 	lock_obj->status = WAITING;
 	// }
-	// else
+	// else if(pred->status == WORKING)
 	// {
-	// 	if(pred->lock_mode == EXCLUSIVE)
+	// 	if(pred->lock_mode == SHARED && lock_obj->lock_mode == SHARED)
 	// 	{
-	// 		if(pred->trx_id == lock_obj->trx_id)
-	// 		{
-	// 			lock_obj->status = WORKING;
-	// 		}
-	// 		else
-	// 		{
-	// 			lock_obj->status = WAITING;
-	// 		}
+	// 		lock_obj->status = WORKING;
 	// 	}
 	// 	else
 	// 	{
-	// 		if(pred->trx_id == lock_obj->trx_id)
-	// 		{
-	// 			if(lock_obj->lock_mode == SHARED)
-	// 			{
-	// 				lock_obj->status = WORKING;
-	// 			}
-	// 			else
-	// 			{
-	// 				while(pred != NULL)
-	// 				{
-	// 					if(pred->trx_id != lock_obj->trx_id)
-	// 					{
-	// 						lock_obj->status = WAITING;
-	// 						break;
-	// 					}
-	// 					pred = pred->prev;
-	// 				}
-	// 				if(pred == NULL)
-	// 				{
-	// 					lock_obj->status = WORKING;
-	// 				}
-	// 			}
-	// 		}
-	// 		else
-	// 		{
-	// 			if(lock_obj->lock_mode == SHARED)
-	// 			{
-	// 				while(pred != NULL)
-	// 				{
-	// 					if(pred->lock_mode == EXCLUSIVE)
-	// 					{
-	// 						lock_obj->status = WAITING;
-	// 						break;
-	// 					}
-	// 					pred = pred->prev;
-	// 				}
-
-	// 				if(pred == NULL)
-	// 				{
-	// 					lock_obj->status = WORKING;
-	// 				}
-	// 			}
-	// 			else
-	// 			{
-	// 				lock_obj->status = WAITING;
-	// 			}
-	// 		}
+	// 		lock_obj->status = WAITING;
 	// 	}
 	// }
+
+	// when one transaction can execute two or more operations(db_find() or db_update()) to one record
+	if(pred->status == WAITING)
+	{
+		lock_obj->status = WAITING;
+	}
+	else
+	{
+		if(pred->lock_mode == EXCLUSIVE)
+		{
+			if(pred->trx_id == lock_obj->trx_id)
+			{
+				lock_obj->status = WORKING;
+			}
+			else
+			{
+				lock_obj->status = WAITING;
+			}
+		}
+		else
+		{
+			if(pred->trx_id == lock_obj->trx_id)
+			{
+				if(lock_obj->lock_mode == SHARED)
+				{
+					lock_obj->status = WORKING;
+				}
+				else
+				{
+					while(pred != NULL)
+					{
+						if(pred->trx_id != lock_obj->trx_id)
+						{
+							lock_obj->status = WAITING;
+							break;
+						}
+						pred = pred->prev;
+					}
+					if(pred == NULL)
+					{
+						lock_obj->status = WORKING;
+					}
+				}
+			}
+			else
+			{
+				if(lock_obj->lock_mode == SHARED)
+				{
+					while(pred != NULL)
+					{
+						if(pred->lock_mode == EXCLUSIVE)
+						{
+							lock_obj->status = WAITING;
+							break;
+						}
+						pred = pred->prev;
+					}
+
+					if(pred == NULL)
+					{
+						lock_obj->status = WORKING;
+					}
+				}
+				else
+				{
+					lock_obj->status = WAITING;
+				}
+			}
+		}
+	}
 
 }
 
@@ -417,98 +417,106 @@ int lock_release(lock_t * lock_obj)
 	
 
 	 // when one transaction can execute one opration(db_find() or db_update()) to one record
-	pred = lock_obj->prev;
-	succ = lock_obj->next;
+	// pred = lock_obj->prev;
+	// succ = lock_obj->next;
 
-	if(pred == NULL && succ != NULL)
+	// if(pred == NULL && succ != NULL)
+	// {
+	// 	if(succ->lock_mode == EXCLUSIVE)
+	// 	{
+	// 		acquire_lock_table_latch();
+	// 		pthread_cond_signal(&(succ->cond));
+	// 		release_lock_table_latch();
+	// 	}
+	// 	else if(succ->lock_mode == SHARED && succ->status == WAITING)
+	// 	{
+	// 		while(succ != NULL)
+	// 		{
+	// 			if(succ->lock_mode == SHARED)
+	// 			{
+	// 				acquire_lock_table_latch();
+	// 				pthread_cond_signal(&(succ->cond));
+	// 				release_lock_table_latch();
+	// 			}
+	// 			else
+	// 			{
+	// 				break;
+	// 			}
+	// 			succ = succ->next;
+	// 		}
+	// 	}
+	// }
+
+	// when one transaction can execute two or more operations(db_find() or db_update()) to one record
+	succ = lock_obj->next;
+	if(succ == NULL)
 	{
-		if(succ->lock_mode == EXCLUSIVE)
+		free(lock_obj);
+		return 0;
+	}
+
+	if(succ->lock_mode == SHARED)
+	{
+		if(lock_obj->prev == NULL)
+		{
+			if(succ->status == WAITING)
+			{
+				while(succ != NULL)
+				{
+					if(succ->lock_mode == SHARED)
+					{
+						acquire_lock_table_latch();
+						pthread_cond_signal(&(succ->cond));
+						release_lock_table_latch();
+					}
+					else
+					{
+						break;
+					}
+					succ = succ->next;
+				}
+			}
+			else
+			{
+				lock_t * succsucc;
+				succ_trx_id = succ->trx_id;
+				succsucc = succ->next;
+
+				while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
+				{
+					if(succsucc->lock_mode == EXCLUSIVE)
+					{
+						acquire_lock_table_latch();
+						pthread_cond_signal(&(succsucc->cond));
+						release_lock_table_latch();
+						break;
+					}
+					succsucc = succsucc->next;
+				}
+			}
+		}
+	}
+	else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
+	{
+		if(lock_obj->prev == NULL)
 		{
 			acquire_lock_table_latch();
 			pthread_cond_signal(&(succ->cond));
 			release_lock_table_latch();
 		}
-		else if(succ->lock_mode == SHARED && succ->status == WAITING)
+		else
 		{
-			while(succ != NULL)
+			if(lock_obj->prev->trx_id == succ->trx_id)
 			{
-				if(succ->lock_mode == SHARED)
+				if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
 				{
 					acquire_lock_table_latch();
 					pthread_cond_signal(&(succ->cond));
 					release_lock_table_latch();
 				}
-				else
-				{
-					break;
-				}
-				succ = succ->next;
 			}
 		}
 	}
-
-	// // when one transaction can execute two or more operations(db_find() or db_update()) to one record
-	// succ = lock_obj->next;
-	// if(succ == NULL)
-	// {
-	// 	free(lock_obj);
-	// 	return 0;
-	// }
-
-	// if(succ->lock_mode == SHARED)
-	// {
-	// 	if(lock_obj->prev == NULL)
-	// 	{
-	// 		if(succ->status == WAITING)
-	// 		{
-	// 			while(succ != NULL)
-	// 			{
-	// 				if(succ->lock_mode == SHARED)
-	// 				{
-	// 					pthread_cond_signal(&(succ->cond));
-	// 				}
-	// 				else
-	// 				{
-	// 					break;
-	// 				}
-	// 				succ = succ->next;
-	// 			}
-	// 		}
-	// 		else
-	// 		{
-	// 			lock_t * succsucc;
-	// 			succ_trx_id = succ->trx_id;
-	// 			succsucc = succ->next;
-
-	// 			while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
-	// 			{
-	// 				if(succsucc->lock_mode == EXCLUSIVE)
-	// 				{
-	// 					pthread_cond_signal(&(succsucc->cond));
-	// 					break;
-	// 				}
-	// 				succsucc = succsucc->next;
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
-	// {
-	// 	if(lock_obj->prev == NULL)
-	// 	{
-	// 		pthread_cond_signal(&(succ->cond));
-	// 	}
-	// 	else
-	// 	{
-	// 		if(lock_obj->prev->trx_id == succ->trx_id)
-	// 		{
-	// 			if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
-	// 			{
-	// 				pthread_cond_signal(&(succ->cond));
-	// 			}
-	// 		}
-	// 	}
-	// }
 
 	free(lock_obj);
 	// release_lock_table_latch();

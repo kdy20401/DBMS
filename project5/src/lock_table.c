@@ -429,18 +429,18 @@ int lock_release(lock_t * lock_obj)
 		}
 		else if(succ->lock_mode == SHARED && succ->status == WAITING)
 		{
-			// while(succ != NULL)
-			// {
-				// if(succ->lock_mode == SHARED)
-				// {
+			while(succ != NULL)
+			{
+				if(succ->lock_mode == SHARED)
+				{
 					pthread_cond_signal(&(succ->cond));
-				// }
-				// else
-				// {
-					// break;
-				// }
-				// succ = succ->next;
-			// }
+				}
+				else
+				{
+					break;
+				}
+				succ = succ->next;
+			}
 		}
 	}
 

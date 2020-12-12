@@ -237,7 +237,6 @@ void trx_abort(int trx_id)
 		lock_release(p);
 	}
 
-	// remove transaction node
 	// printf("remove_from_trx_table,,,\n");
 	remove_from_trx_table(t);
 	// printf("trx_abort finished\n");

@@ -233,6 +233,7 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 
 lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 {
+	acquire_trx_manager_latch();
 	acquire_lock_table_latch();
 
 	lt_bucket * b;
@@ -261,7 +262,7 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 	
 	// order? after abortion finished, decide lock's status
 	// so must be above insert_into_record_lock_list()
-	acquire_trx_manager_latch(); //needed?? -> may yes
+	// acquire_trx_manager_latch(); //needed?? -> may yes
 
 	// arrange record lock list and decide whether wait or work
 	insert_into_record_lock_list(b, lock_obj);
@@ -278,7 +279,7 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 		// {
 		// 	printf("trx %d acquired a X lock!\n", trx_id);
 		// }
-		
+		release_lock_table_latch();
 		release_trx_manager_latch();
 	}
 	// waiting for acquiring a lock
@@ -288,13 +289,13 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 
 		if(is_deadlock(lock_obj))
 		{
+			release_lock_table_latch();
 			trx_abort(trx_id);
 
 			// need to release lock table latch??
 			// while aborting, when waking prdecessor lock object, they acquire lock table latch
 			// if don't release, -> error occurred
 			release_trx_manager_latch();
-			release_lock_table_latch();
 			return NULL;
 		}
 		else
@@ -313,13 +314,14 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 		}		
 	}
 
-	release_lock_table_latch();
+	// release_lock_table_latch();
 
 	return lock_obj;
 }
 
 int lock_release(lock_t * lock_obj)
 {
+	acquire_lock_table_latch();
 	// printf("release trx %d lock mode %d lock!\n", lock_obj->trx_id, lock_obj->lock_mode);
 	lt_bucket * sentinel;
 	lock_t *succ, *pred;
@@ -511,6 +513,7 @@ int lock_release(lock_t * lock_obj)
 	}
 
 	free(lock_obj);
+	release_lock_table_latch();
 	return 0;
 }
 

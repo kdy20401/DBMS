@@ -650,6 +650,7 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 
     // after acquiring a record lock, read a record and finally release page latch
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
+    release_page_latch(fptr);
 
     for(i = 0; i < leaf.num_key; i++)
     {
@@ -660,7 +661,6 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
         }
     }
 
-    release_page_latch(fptr);
     // printf("trx %d find success at key %ld, value %s in table %d\n", trx_id, key, ret_val, table_id);
 
     return 0;

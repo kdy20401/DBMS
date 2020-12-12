@@ -582,7 +582,6 @@ void buf_write_page_trx(int table_id, pagenum_t page_num, page_t * src)
         fptr->is_dirty = true;
         fptr->page_num = page_num;
         fptr->table_id = table_id;
-
         hash_insert(fptr, &hash_table);
     }
 

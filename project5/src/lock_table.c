@@ -274,6 +274,8 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 		// {
 		// 	printf("trx %d acquired a X lock!\n", trx_id);
 		// }
+
+		// order?
 		release_lock_table_latch();
 		release_trx_manager_latch();
 	}
@@ -284,12 +286,9 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 
 		if(is_deadlock(lock_obj))
 		{
-			release_lock_table_latch();
+			release_lock_table_latch(); // because of lock_release()'s acquire_lock_table_latch()
 			trx_abort(trx_id);
 
-			// need to release lock table latch??
-			// while aborting, when waking prdecessor lock object, they acquire lock table latch
-			// if don't release, -> error occurred
 			release_trx_manager_latch();
 			return NULL;
 		}

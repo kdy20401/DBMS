@@ -259,11 +259,6 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 		return NULL;
 	}
 
-	
-	// order? after abortion finished, decide lock's status
-	// so must be above insert_into_record_lock_list()
-	// acquire_trx_manager_latch(); //needed?? -> may yes
-
 	// arrange record lock list and decide whether wait or work
 	insert_into_record_lock_list(b, lock_obj);
 	insert_into_trx_lock_list(lock_obj);

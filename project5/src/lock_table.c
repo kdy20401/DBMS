@@ -297,7 +297,7 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 		{
 			release_trx_manager_latch();
 			pthread_cond_wait(&(lock_obj->cond), &lock_table_latch);
-			release_lock_table_latch();
+			lock_obj->status = WORKING;
 			// if(lock_obj->lock_mode == SHARED)
 			// {
 			// 	printf("trx %d wakes up and acquired a S lock!\n", trx_id);
@@ -306,7 +306,7 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 			// {
 			// 	printf("trx %d wakes up and acquired a X lock!\n", trx_id);
 			// }
-			lock_obj->status = WORKING;
+			release_lock_table_latch();
 		}		
 	}
 

@@ -689,17 +689,16 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     }
 
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-    release_page_latch(fptr);
-
     // after acquiring a page latch, check if the target record exists
-    
     i = search_recordKey(&leaf, key);
 
-    if(i == -1)
+        if(i == -1)
     {
         release_page_latch(fptr);
         return -1;
     }
+
+    release_page_latch(fptr);
 
     // for(i = 0; i < leaf.num_key; i++)
     // {
@@ -768,8 +767,6 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     }
 
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-    release_page_latch(fptr);
-
     i = search_recordKey(&leaf, key);
 
     if(i == -1)
@@ -777,6 +774,8 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         release_page_latch(fptr);
         return -1;
     }
+    
+    release_page_latch(fptr);
 
     // // after acquiring a page latch, check if the target record exists
     // for(i = 0; i < leaf.num_key; i++)

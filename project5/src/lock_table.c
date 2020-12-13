@@ -279,6 +279,7 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 		release_lock_table_latch();
 		release_trx_manager_latch();
 	}
+	// wait for acquiring a lock,,
 	else if(lock_obj->status == WAITING)
 	{
 		// printf("trx %d waits for acquiring a lock,,,,,,,,,,,,,,,,,,,,,,,,,,,,,\n", trx_id);

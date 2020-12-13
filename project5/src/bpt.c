@@ -515,7 +515,7 @@ pagenum_t nt_find_leaf_page(int table_id, int64_t key)
 
 // select index k when traversing B+ tree to find target key if
 // entries[k].key <= target key < entries[k + 1].key
-int search_key(internal_page_t * internal, int key)
+int search_routingKey(internal_page_t * internal, int key)
 {
     int left, mid, right, num_key;
 
@@ -603,7 +603,7 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
             //     i++;
             // }
             // next = root.entries[--i].pagenum;
-            i = search_key(&root, key);
+            i = search_routingKey(&root, key);
 
             if(i == -1)
             {
@@ -612,7 +612,7 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
                 release_page_latch(fptr);
                 continue;
             }
-            
+
             next = root.entries[i].pagenum;
             fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
             release_page_latch(fptr);

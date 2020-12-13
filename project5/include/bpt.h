@@ -31,7 +31,8 @@ int nt_db_find(int table_id, int64_t key, char * ret_val);
 
 // transaction
 // just for db_find and db_update, offer transaction
-int search_routingKey(internal_page_t * internal, int key);
+int search_routingKey(internal_page_t * internal, int64_t key);
+int search_recordKey(leaf_page_t * leaf, int64_t key);
 pagenum_t find_leaf_page(int table_id, int64_t key);
 int db_find(int table_id, int64_t key, char * ret_val, int trx_id);
 void insert_into_rollback_list(int table_id, int64_t key, char * org_value, int trx_id);

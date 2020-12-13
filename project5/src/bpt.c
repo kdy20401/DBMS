@@ -812,6 +812,12 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     strcpy(org_value, leaf.records[i].value);
     strcpy(leaf.records[i].value, values);
 
+    // save original value of record to transaction table
+    acquire_trx_manager_latch();
+    insert_into_rollback_list(table_id, key, org_value, trx_id);
+    release_trx_manager_latch();
+
+
     // for(i = 0; i < leaf.num_key; i++)
     // {
     //     if(leaf.records[i].key == key)
@@ -824,11 +830,6 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 
     buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
     release_page_latch(fptr);
-
-    // save original value of record to transaction table
-    acquire_trx_manager_latch();
-    insert_into_rollback_list(table_id, key, org_value, trx_id);
-    release_trx_manager_latch();
 
     // printf("trx %d update() success at key %ld value to %s in table %d\n", trx_id, key, values, table_id);
 

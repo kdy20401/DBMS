@@ -513,6 +513,50 @@ pagenum_t nt_find_leaf_page(int table_id, int64_t key)
     return leaf_page_num;
 }
 
+// select index k when traversing B+ tree to find target key if
+// entries[k].key <= target key < entries[k + 1].key
+int search_key(internal_page_t * internal, int key)
+{
+    int left, mid, right, num_key;
+
+    num_key = internal->num_key;
+    left = 0;
+    right = num_key - 1;
+
+    while(left <= right)
+    {
+        mid = (left + right) / 2;
+
+        if(key < internal->entries[mid].key)
+        {
+            right = mid - 1;
+        }
+        else
+        {
+            // when key can be found by following the right most index
+            if(mid + 1 >= internal->num_key)
+            {
+                return mid;
+            }
+
+            if(key < internal->entries[mid + 1].key)
+            {
+                return mid;
+            }
+            else
+            {
+                left = mid + 1;
+            }
+        }
+    }
+
+    // leftmost_down page_num
+    if(left > right)
+    {
+        return -1;
+    }
+}
+
 pagenum_t find_leaf_page(int table_id, int64_t key)
 {   
     // printf("finding a leaf page,,,\n");
@@ -545,20 +589,31 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
     {
         while(!(root.isLeaf))
         {
-            if(key < root.entries[0].key)
+            // if(key < root.entries[0].key)
+            // {
+                // next = root.leftmostdown_page_num;
+                // fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
+                // release_page_latch(fptr);
+                // continue;
+            // }
+
+            // i = 0;
+            // while(i < root.num_key && root.entries[i].key <= key)
+            // {
+            //     i++;
+            // }
+            // next = root.entries[--i].pagenum;
+            i = search_key(&root, key);
+
+            if(i == -1)
             {
                 next = root.leftmostdown_page_num;
                 fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
                 release_page_latch(fptr);
                 continue;
             }
-
-            i = 0;
-            while(i < root.num_key && root.entries[i].key <= key)
-            {
-                i++;
-            }
-            next = root.entries[--i].pagenum;
+            
+            next = root.entries[i].pagenum;
             fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
             release_page_latch(fptr);
         }

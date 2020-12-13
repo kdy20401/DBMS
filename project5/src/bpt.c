@@ -800,7 +800,6 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     if(record_lock == NULL)
     {
         // printf("trx %d's update() is aborted at key %ld in table %d\n", trx_id, key, table_id);
-
         return -1;
     }
 
@@ -889,14 +888,6 @@ void insert_into_leaf(int table_id, pagenum_t leaf_page_num, int64_t key, char *
     leaf.records[insertion_point].key = key;
     strcpy(leaf.records[insertion_point].value, value);
     leaf.num_key++;
-
-
-    // printf("keys in the leaf after inserting :\n");
-    // for(int i = 0; i < leaf.num_key; i++)
-    // {
-    //     printf("%ld ", leaf.records[i].key);
-    // }
-    // printf("\n");
 
     buf_write_page(table_id, leaf_page_num, (page_t *)&leaf);
 }

@@ -314,7 +314,6 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 
 int lock_release(lock_t * lock_obj)
 {
-	// acquire_lock_table_latch();
 	// printf("release trx %d lock mode %d lock!\n", lock_obj->trx_id, lock_obj->lock_mode);
 	lt_bucket * sentinel;
 	lock_t *succ, *pred;
@@ -518,7 +517,6 @@ int lock_release(lock_t * lock_obj)
 	}
 
 	free(lock_obj);
-	// release_lock_table_latch();
 	return 0;
 }
 

@@ -309,8 +309,6 @@ lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 		}		
 	}
 
-	// release_lock_table_latch();
-
 	return lock_obj;
 }
 

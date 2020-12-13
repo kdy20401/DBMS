@@ -476,7 +476,7 @@ pagenum_t nt_find_leaf_page(int table_id, int64_t key)
     // there is no root
     if(header.root_page_num == 0)
     {
-        printf("there is no root!\n");
+        // printf("there is no root!\n");
         return -1;
     }
 
@@ -563,8 +563,8 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
     header_page_t header;
     internal_page_t root;
     pagenum_t root_page_num, leaf_page_num, next;
-    int i;
     frame * fptr;
+    int i;
 
     fptr = buf_read_page_trx(table_id, 0, (page_t *)&header);
     release_page_latch(fptr);
@@ -589,35 +589,20 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
     {
         while(!(root.isLeaf))
         {
-            // if(key < root.entries[0].key)
-            // {
-                // next = root.leftmostdown_page_num;
-                // fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
-                // release_page_latch(fptr);
-                // continue;
-            // }
-
-            // i = 0;
-            // while(i < root.num_key && root.entries[i].key <= key)
-            // {
-            //     i++;
-            // }
-            // next = root.entries[--i].pagenum;
             i = search_routingKey(&root, key);
 
             if(i == -1)
             {
                 next = root.leftmostdown_page_num;
-                fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
-                release_page_latch(fptr);
-                continue;
+            }
+            else
+            {
+                next = root.entries[i].pagenum;
             }
 
-            next = root.entries[i].pagenum;
             fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
             release_page_latch(fptr);
         }
-
         leaf_page_num = next;
     }
 
@@ -671,6 +656,7 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     if(leaf_page_num == -1)
     {
         // transaction who call this function must be aborted
+        printf("there is no root page!\n");
         return -1;
     }
 

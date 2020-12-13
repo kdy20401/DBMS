@@ -446,75 +446,75 @@ int lock_release(lock_t * lock_obj)
 	}
 
 	// when one transaction can execute two or more operations(db_find() or db_update()) to one record
-	succ = lock_obj->next;
-	if(succ == NULL)
-	{
-		free(lock_obj);
-		return 0;
-	}
+	// succ = lock_obj->next;
+	// if(succ == NULL)
+	// {
+	// 	free(lock_obj);
+	// 	return 0;
+	// }
 
-	if(succ->lock_mode == SHARED)
-	{
-		if(lock_obj->prev == NULL)
-		{
-			if(succ->status == WAITING)
-			{
-				while(succ != NULL)
-				{
-					if(succ->lock_mode == SHARED)
-					{
-						acquire_lock_table_latch();
-						pthread_cond_signal(&(succ->cond));
-						release_lock_table_latch();
-					}
-					else
-					{
-						break;
-					}
-					succ = succ->next;
-				}
-			}
-			else
-			{
-				lock_t * succsucc;
-				succ_trx_id = succ->trx_id;
-				succsucc = succ->next;
+	// if(succ->lock_mode == SHARED)
+	// {
+	// 	if(lock_obj->prev == NULL)
+	// 	{
+	// 		if(succ->status == WAITING)
+	// 		{
+	// 			while(succ != NULL)
+	// 			{
+	// 				if(succ->lock_mode == SHARED)
+	// 				{
+	// 					acquire_lock_table_latch();
+	// 					pthread_cond_signal(&(succ->cond));
+	// 					release_lock_table_latch();
+	// 				}
+	// 				else
+	// 				{
+	// 					break;
+	// 				}
+	// 				succ = succ->next;
+	// 			}
+	// 		}
+	// 		else
+	// 		{
+	// 			lock_t * succsucc;
+	// 			succ_trx_id = succ->trx_id;
+	// 			succsucc = succ->next;
 
-				while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
-				{
-					if(succsucc->lock_mode == EXCLUSIVE)
-					{
-						acquire_lock_table_latch();
-						pthread_cond_signal(&(succsucc->cond));
-						release_lock_table_latch();
-						break;
-					}
-					succsucc = succsucc->next;
-				}
-			}
-		}
-	}
-	else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
-	{
-		if(lock_obj->prev == NULL)
-		{
-			acquire_lock_table_latch();
-			pthread_cond_signal(&(succ->cond));
-			release_lock_table_latch();
-		}
-		else
-		{
-			if(lock_obj->prev->trx_id == succ->trx_id)
-			{
-				if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
-				{
-					acquire_lock_table_latch();
-					pthread_cond_signal(&(succ->cond));
-					release_lock_table_latch();
-				}
-			}
-		}
-	}
+	// 			while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
+	// 			{
+	// 				if(succsucc->lock_mode == EXCLUSIVE)
+	// 				{
+	// 					acquire_lock_table_latch();
+	// 					pthread_cond_signal(&(succsucc->cond));
+	// 					release_lock_table_latch();
+	// 					break;
+	// 				}
+	// 				succsucc = succsucc->next;
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
+	// {
+	// 	if(lock_obj->prev == NULL)
+	// 	{
+	// 		acquire_lock_table_latch();
+	// 		pthread_cond_signal(&(succ->cond));
+	// 		release_lock_table_latch();
+	// 	}
+	// 	else
+	// 	{
+	// 		if(lock_obj->prev->trx_id == succ->trx_id)
+	// 		{
+	// 			if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
+	// 			{
+	// 				acquire_lock_table_latch();
+	// 				pthread_cond_signal(&(succ->cond));
+	// 				release_lock_table_latch();
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	free(lock_obj);
 	return 0;

@@ -29,8 +29,7 @@ int close_table(int table_id);
 pagenum_t nt_find_leaf_page(int table_id, int64_t key);
 int nt_db_find(int table_id, int64_t key, char * ret_val);
 
-// transaction
-// just for db_find and db_update, offer transaction
+// transaction for db_find and db_update
 int search_routingKey(internal_page_t * internal, int64_t key);
 int search_recordKey(leaf_page_t * leaf, int64_t key);
 pagenum_t find_leaf_page(int table_id, int64_t key);

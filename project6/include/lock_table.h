@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <buffer.h>
 
-#define LOCK_TABLE_SIZE 31
+#define LOCK_TABLE_SIZE 100
 
 // lock mode
 #define SHARED 0

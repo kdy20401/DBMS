@@ -749,22 +749,9 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
         release_page_latch(fptr);
         return -1;
     }
-    
-    // for(i = 0; i < leaf.num_key; i++)
-    // {
-    //     if(leaf.records[i].key == key)
-    //     {
-    //         break;
-    //     }
-    //     if(i == leaf.num_key - 1)
-    //     {
-    //         // transaction who call this function must be aborted
-    //         release_page_latch(fptr);
-    //         return -1;
-    //     }
-    // }
 
     // after identifying the existence of target record, try to acquire a record lock holding a page latch
+    // because in general case, the record can be moved to another page by structure modification
     ret = lock_acquire(table_id, key, trx_id, SHARED, &record_lock);
 
     if(ret == ACQUIRED)
@@ -781,9 +768,13 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 		// {
 			// printf("trx %d acquired a X lock!!\n", trx_id);
 		// }
+
+        strcpy(ret_val, leaf.records[i].value);
+        release_page_latch(fptr);
     }
     else if(ret == DEADLOCK)
     {
+        trx_abort(trx_id);
         // printf("trx %d's find() is aborted at key %ld in table %d\n", trx_id, key, table_id);
         release_page_latch(fptr);
         return -1;
@@ -809,19 +800,11 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
         // find a page again because the page might have been evicted from buffer pool.
         // in general design, must consider the record might have been moved to another page.
         fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-    }
-    
-    // after acquiring a record lock, read a record and finally release page latch
-    for(i = 0; i < leaf.num_key; i++)
-    {
-        if(leaf.records[i].key == key)
-        {
-            strcpy(ret_val, leaf.records[i].value);
-            break;
-        }
+        i = search_recordKey(&leaf, key);
+        strcpy(ret_val, leaf.records[i].value);
+        release_page_latch(fptr);
     }
 
-    release_page_latch(fptr);
     // printf("trx %d find success at key %ld, value %s in table %d\n", trx_id, key, ret_val, table_id);
     return 0;
 }
@@ -830,7 +813,6 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 int db_update(int table_id, int64_t key, char * values, int trx_id)
 {
     // printf("trx %d tries to update key %ld in table %d\n", trx_id, key, table_id);
-
     pagenum_t leaf_page_num;
     leaf_page_t leaf;
     frame * fptr;
@@ -848,24 +830,18 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     }
 
     // read page to check whether target record exists
-    fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-
     // while holding a page latch, check if the target record exists
-    for(i = 0; i < leaf.num_key; i++)
+    fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
+    i = search_recordKey(&leaf, key);
+
+    if(i == -1)
     {
-        if(leaf.records[i].key == key)
-        {
-            break;
-        }
-        if(i == leaf.num_key - 1)
-        {
-            // transaction who call this function must be aborted
-            release_page_latch(fptr);
-            return -1;
-        }
+        release_page_latch(fptr);
+        return -1;
     }
 
-    // after finding the target record, try to acquire a record lock while holding a page latch    
+    // after finding the target record, try to acquire a record lock while holding a page latch
+    // because in general case, the record can be moved to another page by structure modification
     ret = lock_acquire(table_id, key, trx_id, EXCLUSIVE, &record_lock);
 
     if(ret == ACQUIRED)
@@ -881,7 +857,11 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 		// else if(record_lock->lock_mode == EXCLUSIVE)
 		// {
 			// printf("trx %d acquired a X lock!!\n", trx_id);
-		// } 
+		// }
+
+        strcpy(org_value, leaf.records[i].value); 
+        strcpy(leaf.records[i].value, values);
+        release_page_latch(fptr);
     }
     else if(ret == DEADLOCK)
     {
@@ -910,21 +890,11 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         // find a page again because the page might have been evicted from buffer pool.
         // in general design, must consider the record might have been moved to another page.
         fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
+        i = search_recordKey(&leaf, key);
+        strcpy(org_value, leaf.records[i].value); 
+        strcpy(leaf.records[i].value, values);
+        release_page_latch(fptr);
     }
-
-    // after acquiring a record lock, write a record and finally release page latch
-    for(i = 0; i < leaf.num_key; i++)
-    {
-        if(leaf.records[i].key == key)
-        {
-            strcpy(org_value, leaf.records[i].value); 
-            strcpy(leaf.records[i].value, values);
-            break;
-        }
-    }
-
-    buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-    release_page_latch(fptr);
 
     // save original value of record to transaction node in transaction table
     acquire_trx_manager_latch();
@@ -932,7 +902,6 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     release_trx_manager_latch();
 
     // printf("trx %d update() success at key %ld value to %s in table %d\n", trx_id, key, values, table_id);
-
     return 0;
 }
 

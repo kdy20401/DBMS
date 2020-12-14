@@ -557,7 +557,8 @@ void buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest)
     }
 
     // this function is used to rollback, so i think updating LRU is meaningless.
-    // however, including update_lru_list() incurs segmentation fault -> why?
+    // however, including update_lru_list() incurs segmentation fault
+    // there maybe a race condition with another thread's update_lru_list() while rollback
     // update_lru_list(fptr);
 }
 

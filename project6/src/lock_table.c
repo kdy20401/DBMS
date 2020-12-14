@@ -242,7 +242,6 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t ** ret_lock)
 {
 	acquire_lock_table_latch();
-	acquire_trx_manager_latch();
 
 	lt_bucket * b;
 	lock_t * lock_obj;
@@ -260,6 +259,8 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	// create a lock object, add to record lock list and decide whether wait or work
 	lock_obj = create_lock(b, trx_id, lock_mode);
 	insert_into_record_lock_list(b, lock_obj);
+
+	acquire_trx_manager_latch();
 	insert_into_trx_lock_list(lock_obj);
 	// memcpy(ret_lock, lock_obj, sizeof(lock_t));
 	*ret_lock = lock_obj;
@@ -276,13 +277,14 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	{
 		if(is_deadlock(lock_obj))
 		{
-			trx_abort(trx_id);
+			// trx_abort(trx_id);
 
 			// need to release lock table latch??
 			// while aborting, when waking prdecessor lock object, they acquire lock table latch
 			// if don't release, -> error occurred
-			release_trx_manager_latch();
-			release_lock_table_latch();
+
+			// release_trx_manager_latch();
+			// release_lock_table_latch();
 			return DEADLOCK;
 		}
 		else
@@ -290,6 +292,7 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 			// before releasing latches(page_latch, trx_manager, lock_table) acquire trx_latch
 			node = find_trx_node(lock_obj->trx_id);
 			pthread_mutex_lock(&(node->trx_latch));
+			release_lock_table_latch();
 			return NEED_TO_WAIT;
 			// after return, lock_wait() will be called
 		}		
@@ -302,7 +305,7 @@ void lock_wait(lock_t * lock_obj)
 	
 	node = find_trx_node(lock_obj->trx_id);
 	release_trx_manager_latch();
-	release_lock_table_latch();
+	// release_lock_table_latch();
 	// printf("trx %d's lock attached to key %ld in table %d goes to sleep for acquiring a lock,,,,,,,\n",
 		// lock_obj->trx_id, lock_obj->sentinel->key, lock_obj->sentinel->table_id);
 
@@ -316,9 +319,8 @@ void lock_wait(lock_t * lock_obj)
 int lock_release(lock_t * lock_obj)
 {
 	lt_bucket * sentinel;
-	lock_t * succ;
+	lock_t *succ, *succsucc;
 	int succ_trx_id, flag;
-	trx_node * node;
 
 	sentinel = lock_obj->sentinel;
 
@@ -375,102 +377,24 @@ int lock_release(lock_t * lock_obj)
 	// 	}
 	// }
 
-	// // when one transaction can execute two or more operations(db_find() or db_update()) to one record
-	// succ = lock_obj->next;
-	// if(succ == NULL)
-	// {
-	// 	free(lock_obj);
-	// 	return 0;
-	// }
-
-	// if(succ->lock_mode == SHARED)
-	// {
-	// 	if(lock_obj->prev == NULL)
-	// 	{
-	// 		if(succ->status == WAITING)
-	// 		{
-	// 			while(succ != NULL)
-	// 			{
-	// 				if(succ->lock_mode == SHARED)
-	// 				{
-	// 					acquire_trx_latch(succ->trx_id);
-	// 					pthread_cond_signal(&(succ->cond));
-	// 					release_trx_latch(succ->trx_id);
-	// 				}
-	// 				else
-	// 				{
-	// 					break;
-	// 				}
-	// 				succ = succ->next;
-	// 			}
-	// 		}
-	// 		else
-	// 		{
-	// 			lock_t * succsucc;
-	// 			succ_trx_id = succ->trx_id;
-	// 			succsucc = succ->next;
-
-	// 			while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
-	// 			{
-	// 				if(succsucc->lock_mode == EXCLUSIVE)
-	// 				{
-	// 					acquire_trx_latch(succsucc->trx_id);
-	// 					pthread_cond_signal(&(succsucc->cond));
-	// 					release_trx_latch(succsucc->trx_id);
-	// 					break;
-	// 				}
-	// 				succsucc = succsucc->next;
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
-	// {
-	// 	if(lock_obj->prev == NULL)
-	// 	{
-	// 		acquire_trx_latch(succ->trx_id);
-	// 		pthread_cond_signal(&(succ->cond));
-	// 		release_trx_latch(succ->trx_id);
-	// 	}
-	// 	else
-	// 	{
-	// 		if(lock_obj->prev->trx_id == succ->trx_id)
-	// 		{
-	// 			if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
-	// 			{
-	// 				acquire_trx_latch(succ->trx_id);
-	// 				pthread_cond_signal(&(succ->cond));
-	// 				release_trx_latch(succ->trx_id);
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-    // explanation of the condition after ||
-	// basically, if both predecessor and successor exist, don't wakes up the successor
-	// because the predecessor will wakes it up. however, by strict two phase locking,
-	// the situation where predecessor cannot wake up the successor exists.
-	// which is, both predecessor and successor belong to the same transaction
-	
-	flag = 0;
-
-	if(lock_obj->next != NULL)
+	// when one transaction can execute two or more operations(db_find() or db_update()) to one record
+	succ = lock_obj->next;
+	if(succ == NULL)
 	{
-		if((lock_obj->prev == NULL) || ((lock_obj->prev != NULL) && (lock_obj->prev->trx_id == lock_obj->next->trx_id)))
-		{
-			succ = lock_obj->next;
-			succ_trx_id = succ->trx_id;
+		free(lock_obj);
+		return 0;
+	}
 
-			// wakes up all sleeping record locks
-			// idea1 : regardless of transaction, can wake up all S locks in a row
-			// idea2 : can wake up all S locks or X locks in a row belong to one transaction
-			if(succ->lock_mode == EXCLUSIVE)
+	if(succ->lock_mode == SHARED)
+	{
+		if(lock_obj->prev == NULL)
+		{
+			if(succ->status == WAITING)
 			{
-				while(succ != NULL && succ->status == WAITING)
+				while(succ != NULL)
 				{
-					if(succ->trx_id == succ_trx_id)
+					if(succ->lock_mode == SHARED)
 					{
-						// printf("wake up trx %d's lock attached to key %ld in table %d\n", succ->trx_id, succ->sentinel->key, succ->sentinel->table_id);
 						acquire_trx_latch(succ->trx_id);
 						pthread_cond_signal(&(succ->cond));
 						release_trx_latch(succ->trx_id);
@@ -482,48 +406,126 @@ int lock_release(lock_t * lock_obj)
 					succ = succ->next;
 				}
 			}
-			else if(succ->lock_mode == SHARED)
+			else
 			{
-				// wakes up all successive S locks
-				// if those S locks' transaction is not one, flag is set to 1
-				while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
+				lock_t * succsucc;
+				succ_trx_id = succ->trx_id;
+				succsucc = succ->next;
+
+				while(succsucc != NULL && succsucc->trx_id == succ->trx_id)
 				{
-					// printf("wake up trx %d's lock attached to key %ld in table %d\n", succ->trx_id, succ->sentinel->key, succ->sentinel->table_id);
-					acquire_trx_latch(succ->trx_id);
-					pthread_cond_signal(&(succ->cond));
-					release_trx_latch(succ->trx_id);
-
-					if(succ->trx_id != succ_trx_id)
+					if(succsucc->lock_mode == EXCLUSIVE)
 					{
-						flag = 1;
+						acquire_trx_latch(succsucc->trx_id);
+						pthread_cond_signal(&(succsucc->cond));
+						release_trx_latch(succsucc->trx_id);
+						break;
 					}
-					succ = succ->next;
-				}
-
-				// idea2
-				if((succ != NULL) && (succ->lock_mode == EXCLUSIVE) && (flag == 0))
-				{
-					while(succ != NULL)
-					{
-
-						if(succ->trx_id == succ_trx_id)
-						{
-							// printf("wake up trx %d's lock attached to key %ld in table %d\n", succ->trx_id, succ->sentinel->key, succ->sentinel->table_id);
-							acquire_trx_latch(succ->trx_id);
-							pthread_cond_signal(&(succ->cond));
-							release_trx_latch(succ->trx_id);
-						}
-						else
-						{
-							break;
-						}
-						succ = succ->next;
-					}
+					succsucc = succsucc->next;
 				}
 			}
 		}
 	}
-	// if not, nothing to do. predecessor will wake up successor
+	else if(succ->lock_mode == EXCLUSIVE && succ->status == WAITING)
+	{
+		if(lock_obj->prev == NULL)
+		{
+			acquire_trx_latch(succ->trx_id);
+			pthread_cond_signal(&(succ->cond));
+			release_trx_latch(succ->trx_id);
+		}
+		else
+		{
+			if(lock_obj->prev->trx_id == succ->trx_id)
+			{
+				if(lock_obj->prev->status == WORKING && lock_obj->status == WORKING && succ->status == WAITING)
+				{
+					acquire_trx_latch(succ->trx_id);
+					pthread_cond_signal(&(succ->cond));
+					release_trx_latch(succ->trx_id);
+				}
+			}
+		}
+	}
+
+    // // explanation of the condition after ||
+	// // basically, if both predecessor and successor exist, don't wakes up the successor
+	// // because the predecessor will wakes it up. however, by strict two phase locking,
+	// // the situation where predecessor cannot wake up the successor exists.
+	// // which is, both predecessor and successor belong to the same transaction
+	
+	// flag = 0;
+
+	// if(lock_obj->next != NULL)
+	// {
+	// 	if((lock_obj->prev == NULL) || ((lock_obj->prev != NULL) && (lock_obj->prev->trx_id == lock_obj->next->trx_id)))
+	// 	{
+	// 		succ = lock_obj->next;
+	// 		succ_trx_id = succ->trx_id;
+
+	// 		// wakes up all sleeping record locks
+	// 		// idea1 : regardless of transaction, can wake up all S locks in a row
+	// 		// idea2 : can wake up all S locks or X locks in a row belong to one transaction
+	// 		if(succ->lock_mode == EXCLUSIVE)
+	// 		{
+	// 			while(succ != NULL && succ->status == WAITING)
+	// 			{
+	// 				if(succ->trx_id == succ_trx_id)
+	// 				{
+	// 					// printf("wake up trx %d's lock attached to key %ld in table %d\n", succ->trx_id, succ->sentinel->key, succ->sentinel->table_id);
+	// 					acquire_trx_latch(succ->trx_id);
+	// 					pthread_cond_signal(&(succ->cond));
+	// 					release_trx_latch(succ->trx_id);
+	// 				}
+	// 				else
+	// 				{
+	// 					break;
+	// 				}
+	// 				succ = succ->next;
+	// 			}
+	// 		}
+	// 		else if(succ->lock_mode == SHARED)
+	// 		{
+	// 			// wakes up all successive S locks
+	// 			// if those S locks' transaction is not one, flag is set to 1
+	// 			while(succ != NULL && succ->status == WAITING && succ->lock_mode == SHARED)
+	// 			{
+	// 				// printf("wake up trx %d's lock attached to key %ld in table %d\n", succ->trx_id, succ->sentinel->key, succ->sentinel->table_id);
+	// 				acquire_trx_latch(succ->trx_id);
+	// 				pthread_cond_signal(&(succ->cond));
+	// 				release_trx_latch(succ->trx_id);
+
+	// 				if(succ->trx_id != succ_trx_id)
+	// 				{
+	// 					flag = 1;
+	// 				}
+	// 				succ = succ->next;
+	// 			}
+
+	// 			// idea2
+	// 			if((succ != NULL) && (succ->lock_mode == EXCLUSIVE) && (flag == 0))
+	// 			{
+	// 				while(succ != NULL)
+	// 				{
+
+	// 					if(succ->trx_id == succ_trx_id)
+	// 					{
+	// 						// printf("wake up trx %d's lock attached to key %ld in table %d\n", succ->trx_id, succ->sentinel->key, succ->sentinel->table_id);
+	// 						acquire_trx_latch(succ->trx_id);
+	// 						pthread_cond_signal(&(succ->cond));
+	// 						release_trx_latch(succ->trx_id);
+	// 					}
+	// 					else
+	// 					{
+	// 						break;
+	// 					}
+	// 					succ = succ->next;
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// // if not, nothing to do. predecessor will wake up successor
 
 	free(lock_obj);
 

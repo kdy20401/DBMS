@@ -195,22 +195,15 @@ void rollback_db_update(int table_id, int64_t key, char * org_value)
     pagenum_t leaf_page_num;
     leaf_page_t leaf;
 	frame * fptr;
+	int i;
 
 	// find_leaf_page() with no acquiring a buffer and page latch
 	leaf_page_num = find_leaf_page1(table_id, key);
 
 	// buf_read_page_trx() with no acquiring a buffer and page latch
 	buf_read_page_trx1(table_id, leaf_page_num, (page_t *)&leaf);
-
-	for(int i = 0; i < leaf.num_key; i++)
-	{
-		if(leaf.records[i].key == key)
-		{
-			strcpy(leaf.records[i].value, org_value);
-			break;
-		}
-	}
-
+	i = search_recordKey(&leaf, key);
+	strcpy(leaf.records[i].value, org_value);
 	buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
 }
 
@@ -223,7 +216,7 @@ void rollback(trx_node * node)
 
 	// in general design, thread doesn't release page latch before acquiring a record lock.
 	// there is a special situation when thread1 who is going to acquire buffer latch to 
-	// rollback record changes. however, if, another thread2 exists who already acquired buffer latch
+	// rollback record changes. if, another thread2 exists who already acquired buffer latch
 	// and is waiting for acquiring the page latch (acquired by thread1) while traversing index,
 	// thread1 cannot acquire a buffer latch because thread2 is holding it.
 
@@ -252,19 +245,24 @@ void rollback(trx_node * node)
 int trx_abort(int trx_id)
 {
 	// printf("abort start\n");
-	trx_node * t;
+	trx_node * node;
 	lock_t *p, *q;
 
 	// printf("find_trx_node,,\n");
-	t = find_trx_node(trx_id);
+	node = find_trx_node(trx_id);
+	if(node == NULL)
+	{
+		// already aborted or error in find_trx_node()
+		return 0;
+	}
 
 	// roll back all data
 	// printf("rollback,,,\n");
-	rollback(t);
+	rollback(node);
 
 	// release all locks
 	p = NULL;
-	q = t->head;
+	q = node->head;
 
 	// printf("release locks,,\n");
 	while(q != NULL)
@@ -283,8 +281,11 @@ int trx_abort(int trx_id)
 	}
 
 	// remove transaction node
-	remove_from_trx_table(t);
+	remove_from_trx_table(node);
+	release_trx_manager_latch();
+	release_lock_table_latch();
 	// printf("trx_abort finished\n");
+	return trx_id;
 }
 
 int trx_begin()
@@ -311,9 +312,7 @@ int trx_begin()
 	}
 
 	insert_into_trx_table(node);
-
 	release_trx_manager_latch();
-
     // printf("trx %d begin\n", trx_id);
 
 	return trx_id;

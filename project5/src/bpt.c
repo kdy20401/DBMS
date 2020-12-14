@@ -617,17 +617,34 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
     {
         while(!(root.isLeaf))
         {
-            i = search_routingKey(&root, key);
+            // i = search_routingKey(&root, key);
 
-            if(i == -1)
+            // if(i == -1)
+            // {
+            //     next = root.leftmostdown_page_num;
+            // }
+            // else
+            // {
+            //     next = root.entries[i].pagenum;
+            // }
+
+            // fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
+            // release_page_latch(fptr);
+
+            if(key < root.entries[0].key)
             {
                 next = root.leftmostdown_page_num;
-            }
-            else
-            {
-                next = root.entries[i].pagenum;
+                fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
+                release_page_latch(fptr);
+                continue;
             }
 
+            i = 0;
+            while(i < root.num_key && root.entries[i].key <= key)
+            {
+                i++;
+            }
+            next = root.entries[--i].pagenum;
             fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
             release_page_latch(fptr);
         }
@@ -688,11 +705,11 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
         return -1;
     }
 
-    fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
     // after acquiring a page latch, check if the target record exists
+    fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
     i = search_recordKey(&leaf, key);
 
-        if(i == -1)
+    if(i == -1)
     {
         release_page_latch(fptr);
         return -1;
@@ -726,9 +743,7 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 
     // after acquiring a record lock, read a record and finally release page latch
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-
     i = search_recordKey(&leaf, key);
-    
     strcpy(ret_val, leaf.records[i].value);
     release_page_latch(fptr);
 
@@ -766,32 +781,31 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         return -1;
     }
 
+    // after acquiring a page latch, check if the target record exists
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-    i = search_recordKey(&leaf, key);
 
-    if(i == -1)
+    // i = search_recordKey(&leaf, key);
+    // if(i == -1)
+    // {
+    //     release_page_latch(fptr);
+    //     return -1;
+    // }
+
+    for(i = 0; i < leaf.num_key; i++)
     {
-        release_page_latch(fptr);
-        return -1;
+        if(leaf.records[i].key == key)
+        {
+            break;
+        }
+        if(i == leaf.num_key - 1)
+        {
+            // transaction who call this function must be aborted
+            release_page_latch(fptr);
+            return -1;
+        }
     }
     
     release_page_latch(fptr);
-
-    // // after acquiring a page latch, check if the target record exists
-    // for(i = 0; i < leaf.num_key; i++)
-    // {
-    //     if(leaf.records[i].key == key)
-    //     {
-    //         break;
-    //     }
-    //     if(i == leaf.num_key - 1)
-    //     {
-    //         // transaction who call this function must be aborted
-    //         release_page_latch(fptr);
-    //         return -1;
-    //     }
-    // }
-
 
     // after finding the target record, release page latch and try to acquire a record lock    
     record_lock = lock_acquire(table_id, key, trx_id, EXCLUSIVE);
@@ -805,20 +819,19 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     // after acquiring a record lock, write a record and finally release page latch
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
 
-    i = search_recordKey(&leaf, key);
-    
-    strcpy(org_value, leaf.records[i].value);
-    strcpy(leaf.records[i].value, values);
+    // i = search_recordKey(&leaf, key);
+    // strcpy(org_value, leaf.records[i].value);
+    // strcpy(leaf.records[i].value, values);
 
-    // for(i = 0; i < leaf.num_key; i++)
-    // {
-    //     if(leaf.records[i].key == key)
-    //     {
-    //         strcpy(org_value, leaf.records[i].value); 
-    //         strcpy(leaf.records[i].value, values);
-    //         break;
-    //     }
-    // }
+    for(i = 0; i < leaf.num_key; i++)
+    {
+        if(leaf.records[i].key == key)
+        {
+            strcpy(org_value, leaf.records[i].value); 
+            strcpy(leaf.records[i].value, values);
+            break;
+        }
+    }
 
     buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
     release_page_latch(fptr);

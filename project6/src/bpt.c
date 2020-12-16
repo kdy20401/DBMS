@@ -679,8 +679,7 @@ pagenum_t find_leaf_page1(int table_id, int64_t key)
             {
                 next = root.entries[i].pagenum;
             }
-            fptr = buf_read_page_trx(table_id, next, (page_t *)&root);
-            release_page_latch(fptr);
+            fptr = buf_read_page_trx1(table_id, next, (page_t *)&root);
         }
         leaf_page_num = next;
     }

@@ -436,6 +436,7 @@ void buf_free_page(int table_id, pagenum_t pagenum)
 frame * buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest)
 {
     frame * fptr;
+    int ret;
 
     //use a hash table to find the frame which contains the target page
     fptr = hash_find(table_id, page_num, &hash_table);
@@ -443,6 +444,7 @@ frame * buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest)
     //if the page is in the buffer pool
     if(fptr != NULL)
     {
+        // ret = pthread_mutex_trylock(&fptr->page_latch);
         memcpy(dest, fptr->page, PAGE_SIZE);
     }
     //if the page is not in the pool, get page from the disk!
@@ -450,6 +452,7 @@ frame * buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest)
     {
         // eviction
         fptr = lru_list_tail;
+        // ret = pthread_mutex_trylock(&fptr->page_latch);
 
         // delete existing frame information in hash table
         // this condition is for the initial circumstance

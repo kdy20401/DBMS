@@ -284,7 +284,7 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 			// if don't release, -> error occurred
 
 			release_lock_table_latch();
-			release_trx_manager_latch();
+			// release_trx_manager_latch();
 			return DEADLOCK;
 		}
 		else

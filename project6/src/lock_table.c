@@ -276,12 +276,6 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	{
 		if(is_deadlock(lockObj))
 		{
-			// trx_abort(trx_id);
-
-			// need to release lock table latch??
-			// while aborting, when waking prdecessor lock object, they acquire lock table latch
-			// if don't release, -> error occurred
-
 			release_lock_table_latch();
 			release_trx_manager_latch();
 			return DEADLOCK;
@@ -291,7 +285,6 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 			// before releasing latches(page_latch, trx_manager, lock_table) acquire trx_latch
 			node = find_trx_node(lockObj->trx_id);
 			pthread_mutex_lock(&(node->trx_latch));
-			// release_lock_table_latch();
 			return NEED_TO_WAIT;
 			// after return, lock_wait() will be called
 		}		

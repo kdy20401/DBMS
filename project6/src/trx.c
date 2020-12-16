@@ -212,34 +212,13 @@ void rollback(trx_node * node)
 	rollback_t * rb_node;
 	int ret;
 
-	rb_node = node->rollback_list;
-
-	// in general design, thread doesn't release page latch before acquiring a record lock.
-	// there is a special situation when thread1 who is going to acquire buffer latch to 
-	// rollback record changes. if, another thread2 exists who already acquired buffer latch
-	// and is waiting for acquiring the page latch (acquired by thread1) while traversing index,
-	// thread1 cannot acquire a buffer latch because thread2 is holding it.
-
-	// for that case, use pthread_mutex_trylock().
-	// if return value of pthread_mutex_trylock() is not 0,
-	// it means another thread is already holding a buffer latch.
-	// if return value is 0, it means the current thread who is executing an abort
-	// has succeeded to acquire a buffer latch.
-	// in either case, buffer is protected from by it's latch.
-	// so rollback can be done safely using rollback_db_update() function
-	
-	// ret = pthread_mutex_trylock(&buffer_manager_latch);
+	rb_node = node->rollback_list; 
 
 	while(rb_node != NULL)
 	{
 		rollback_db_update(rb_node->table_id, rb_node->key, rb_node->value_saved);
 		rb_node = rb_node->next;
 	}
-
-	// if(ret == 0)
-	// {
-	// 	pthread_mutex_unlock(&buffer_manager_latch);
-	// }
 }
 
 // already acquired trx_manager_latch

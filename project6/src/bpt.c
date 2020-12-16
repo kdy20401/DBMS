@@ -772,6 +772,12 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     }
     else if(ret == DEADLOCK)
     {
+        // in general design, thread doesn't release page latch before going to acquire a record lock.
+	    // there is a special situation when thread1 who is going to acquire buffer latch to 
+	    // rollback record changes. if, another thread2 exists who already acquired buffer latch
+	    // and is waiting for acquiring the page latch (acquired by thread1),
+	    // thread1 cannot acquire a buffer latch because thread2 is holding it.
+	    // so must release page latch before trx_abort()
         release_page_latch(fptr);
         trx_abort(trx_id);
         // printf("trx %d's find() is aborted at key %ld in table %d\n", trx_id, key, table_id);
@@ -794,9 +800,10 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 	    	// printf("trx %d wakes up and acquired a X lock!\n", trx_id);
 	    // }
 
-        // after wakes up and acquires a record lock,
+        // after wakes up and acquires a record lock simultaneously,
         // find a page again because the page might have been evicted from buffer pool.
-        // in general design, must consider the record might have been moved to another page.
+        // (in general situation, the record might have been moved to another page
+        // because of structure modification. so should retraverse index)
         fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
         i = search_recordIndex(&leaf, key);
         strcpy(ret_val, leaf.records[i].value);
@@ -864,6 +871,12 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     }
     else if(ret == DEADLOCK)
     {
+        // in general design, thread doesn't release page latch before going to acquire a record lock.
+	    // there is a special situation when thread1 who is going to acquire buffer latch to 
+	    // rollback record changes. if, another thread2 exists who already acquired buffer latch
+	    // and is waiting for acquiring the page latch (acquired by thread1),
+	    // thread1 cannot acquire a buffer latch because thread2 is holding it.
+	    // so must release page latch before trx_abort()
         release_page_latch(fptr);
         trx_abort(trx_id);
         // printf("trx %d's update() is aborted at key %ld in table %d\n", trx_id, key, table_id);
@@ -886,9 +899,10 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 	    	// printf("trx %d wakes up and acquired a X lock!\n", trx_id);
 	    // }
 
-        // after wakes up and acquires a record lock,
+        // after wakes up and acquires a record lock simultaneously,
         // find a page again because the page might have been evicted from buffer pool.
-        // in general design, must consider the record might have been moved to another page.
+        // (in general situation, the record might have been moved to another page
+        // because of structure modification. so should retraverse index)
         fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
         i = search_recordIndex(&leaf, key);
         strcpy(org_value, leaf.records[i].value); 

@@ -201,10 +201,10 @@ void rollback_db_update(int table_id, int64_t key, char * org_value)
 	leaf_page_num = find_leaf_page1(table_id, key);
 
 	// buf_read_page_trx() with no acquiring a buffer and page latch
-	buf_read_page_trx1(table_id, leaf_page_num, (page_t *)&leaf);
+	fptr = buf_read_page_trx1(table_id, leaf_page_num, (page_t *)&leaf);
 	i = search_recordKey(&leaf, key);
 	strcpy(leaf.records[i].value, org_value);
-	buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
+	buf_write_page_trx1(fptr, table_id, leaf_page_num, (page_t *)&leaf);
 }
 
 void rollback(trx_node * node)
@@ -242,6 +242,9 @@ void rollback(trx_node * node)
 	}
 }
 
+// acquire page latch
+// acquire lock table latch
+// acquire trx_manager_latch
 int trx_abort(int trx_id)
 {
 	// printf("abort start\n");
@@ -282,8 +285,8 @@ int trx_abort(int trx_id)
 
 	// remove transaction node
 	remove_from_trx_table(node);
-	release_trx_manager_latch();
 	release_lock_table_latch();
+	release_trx_manager_latch();
 	// printf("trx_abort finished\n");
 	return trx_id;
 }
@@ -337,8 +340,8 @@ int trx_commit(int trx_id)
 	// so release all latches before return error code
 	if(target == NULL)
 	{
-		release_trx_manager_latch();
 		release_lock_table_latch();
+		release_trx_manager_latch();
 		// printf("trx%d commit end (ABORTED)\n", trx_id);
 
 		return 0;
@@ -365,8 +368,8 @@ int trx_commit(int trx_id)
 	remove_from_trx_table(target);
 	trx_table.trx_num--;
 
-	release_trx_manager_latch();
 	release_lock_table_latch();
+	release_trx_manager_latch();
     // printf("trx %d commit\n", trx_id);
 	return trx_id;
 }

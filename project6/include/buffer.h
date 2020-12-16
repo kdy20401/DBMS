@@ -65,8 +65,10 @@ void buf_write_page(int table_id, pagenum_t page_num, page_t * src);
 void buf_unpin_page(int table_id, pagenum_t page_num);
 
 frame * buf_read_page_trx(int table_id, pagenum_t page_num, page_t * dest);
-void buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest);
 void buf_write_page_trx(int table_id, pagenum_t page_num, page_t * src);
+
+frame * buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest);
+void buf_write_page_trx1(frame * fptr, int table_id, pagenum_t page_num, page_t * src);
 
 void acquire_buffer_latch();
 void release_buffer_latch();

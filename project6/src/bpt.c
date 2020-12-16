@@ -775,8 +775,8 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     else if(ret == DEADLOCK)
     {
         trx_abort(trx_id);
-        // printf("trx %d's find() is aborted at key %ld in table %d\n", trx_id, key, table_id);
         release_page_latch(fptr);
+        // printf("trx %d's find() is aborted at key %ld in table %d\n", trx_id, key, table_id);
         return -1;
     }
     else if(ret == NEED_TO_WAIT)
@@ -861,10 +861,12 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 
         strcpy(org_value, leaf.records[i].value); 
         strcpy(leaf.records[i].value, values);
+        buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
         release_page_latch(fptr);
     }
     else if(ret == DEADLOCK)
     {
+        trx_abort(trx_id);
         // printf("trx %d's update() is aborted at key %ld in table %d\n", trx_id, key, table_id);
         release_page_latch(fptr);
         return -1;
@@ -893,6 +895,7 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         i = search_recordKey(&leaf, key);
         strcpy(org_value, leaf.records[i].value); 
         strcpy(leaf.records[i].value, values);
+        buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
         release_page_latch(fptr);
     }
 

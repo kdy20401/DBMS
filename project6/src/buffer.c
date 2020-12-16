@@ -431,20 +431,28 @@ void buf_free_page(int table_id, pagenum_t pagenum)
     buf_write_page(table_id, pagenum, (page_t *)&tmp);
 }
 
-void buf_read_page(int table_id, pagenum_t page_num, page_t * dest)
+// this buf_read_page_trx1() function is same as buf_read_page_trx()
+// but doesn't acquire buffer latch and page latch. this function is only used to rollback
+frame * buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest)
 {
     frame * fptr;
 
+    //use a hash table to find the frame which contains the target page
     fptr = hash_find(table_id, page_num, &hash_table);
 
+    //if the page is in the buffer pool
     if(fptr != NULL)
     {
         memcpy(dest, fptr->page, PAGE_SIZE);
     }
+    //if the page is not in the pool, get page from the disk!
     else
     {
+        // eviction
         fptr = lru_list_tail;
 
+        // delete existing frame information in hash table
+        // this condition is for the initial circumstance
         if(fptr->page_num != -1)
         {
             hash_delete(fptr, &hash_table);
@@ -463,7 +471,22 @@ void buf_read_page(int table_id, pagenum_t page_num, page_t * dest)
 
         hash_insert(fptr, &hash_table);
     }
+
+    // this function is used to rollback, so i think updating LRU is meaningless.
+    // however, including update_lru_list() incurs segmentation fault
+    // there maybe a race condition with another thread's update_lru_list() while rollback
+    // -> when pthread_mutex_trylock() fails
+    // update_lru_list(fptr);
+
+    return fptr;
 }
+
+void buf_write_page_trx1(frame * fptr, int table_id, pagenum_t page_num, page_t * src)
+{
+    memcpy(fptr->page, src, PAGE_SIZE);
+    fptr->is_dirty = true;
+}
+
 frame * buf_read_page_trx(int table_id, pagenum_t page_num, page_t * dest)
 {
     acquire_buffer_latch();
@@ -515,87 +538,6 @@ frame * buf_read_page_trx(int table_id, pagenum_t page_num, page_t * dest)
     return fptr;
 }
 
-// this buf_read_page_trx1() function is same as buf_read_page_trx()
-// but doesn't acquire buffer latch and page latch. this function is only used to rollback
-void buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest)
-{
-    frame * fptr;
-
-    //use a hash table to find the frame which contains the target page
-    fptr = hash_find(table_id, page_num, &hash_table);
-
-    //if the page is in the buffer pool
-    if(fptr != NULL)
-    {
-        memcpy(dest, fptr->page, PAGE_SIZE);
-    }
-    //if the page is not in the pool, get page from the disk!
-    else
-    {
-        // eviction
-        fptr = lru_list_tail;
-
-        // delete existing frame information in hash table
-        // this condition is for the initial circumstance
-        if(fptr->page_num != -1)
-        {
-            hash_delete(fptr, &hash_table);
-        }
-
-        if(fptr->is_dirty == true)
-        {
-            file_write_page(fptr->table_id, fptr->page_num, fptr->page);
-        }
-
-        file_read_page(table_id, page_num, fptr->page);
-        memcpy(dest, fptr->page, PAGE_SIZE);
-        fptr->is_dirty = false;
-        fptr->page_num = page_num;
-        fptr->table_id = table_id;
-
-        hash_insert(fptr, &hash_table);
-    }
-
-    // this function is used to rollback, so i think updating LRU is meaningless.
-    // however, including update_lru_list() incurs segmentation fault
-    // there maybe a race condition with another thread's update_lru_list() while rollback
-    // update_lru_list(fptr);
-}
-
-void buf_write_page(int table_id, pagenum_t page_num, page_t * src)
-{
-    frame * fptr;
-
-    fptr = hash_find(table_id, page_num, &hash_table);
-
-    if(fptr != NULL)
-    {
-        memcpy(fptr->page, src, PAGE_SIZE);
-        fptr->is_dirty = true;
-    }
-    else
-    {
-        fptr = lru_list_tail;
-        
-        if(fptr->page_num != -1)
-        {
-            hash_delete(fptr, &hash_table);
-        }
-
-        if(fptr->is_dirty == true)
-        {
-            file_write_page(fptr->table_id, fptr->page_num, fptr->page);
-        }
-
-        memcpy(fptr->page, src, PAGE_SIZE);
-        fptr->is_dirty = true;
-        fptr->page_num = page_num;
-        fptr->table_id = table_id;
-
-        hash_insert(fptr, &hash_table);
-    }
-}
-
 void buf_write_page_trx(int table_id, pagenum_t page_num, page_t * src)
 {
     frame * fptr;
@@ -637,7 +579,74 @@ void buf_write_page_trx(int table_id, pagenum_t page_num, page_t * src)
     // in most cases, buf_write_page_trx() is executed after buf_read_page_trx()
     // so LRU list is already updated
     // update_lru_list(fptr);
-    
+}
+
+void buf_read_page(int table_id, pagenum_t page_num, page_t * dest)
+{
+    frame * fptr;
+
+    fptr = hash_find(table_id, page_num, &hash_table);
+
+    if(fptr != NULL)
+    {
+        memcpy(dest, fptr->page, PAGE_SIZE);
+    }
+    else
+    {
+        fptr = lru_list_tail;
+
+        if(fptr->page_num != -1)
+        {
+            hash_delete(fptr, &hash_table);
+        }
+
+        if(fptr->is_dirty == true)
+        {
+            file_write_page(fptr->table_id, fptr->page_num, fptr->page);
+        }
+
+        file_read_page(table_id, page_num, fptr->page);
+        memcpy(dest, fptr->page, PAGE_SIZE);
+        fptr->is_dirty = false;
+        fptr->page_num = page_num;
+        fptr->table_id = table_id;
+
+        hash_insert(fptr, &hash_table);
+    }
+}
+
+void buf_write_page(int table_id, pagenum_t page_num, page_t * src)
+{
+    frame * fptr;
+
+    fptr = hash_find(table_id, page_num, &hash_table);
+
+    if(fptr != NULL)
+    {
+        memcpy(fptr->page, src, PAGE_SIZE);
+        fptr->is_dirty = true;
+    }
+    else
+    {
+        fptr = lru_list_tail;
+        
+        if(fptr->page_num != -1)
+        {
+            hash_delete(fptr, &hash_table);
+        }
+
+        if(fptr->is_dirty == true)
+        {
+            file_write_page(fptr->table_id, fptr->page_num, fptr->page);
+        }
+
+        memcpy(fptr->page, src, PAGE_SIZE);
+        fptr->is_dirty = true;
+        fptr->page_num = page_num;
+        fptr->table_id = table_id;
+
+        hash_insert(fptr, &hash_table);
+    }
 }
 
 void buf_unpin_page(int table_id, pagenum_t page_num)

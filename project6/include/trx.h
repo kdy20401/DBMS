@@ -51,10 +51,10 @@ void remove_rollback_list(trx_node * node);
 void insert_into_rollback_list(int table_id, int64_t key, char * org_value, int trx_id);
 void rollback_db_update(int table_id, int64_t key, char * org_value);
 void rollback(trx_node * node);
-int trx_abort(int trx_id);
 
 /* transaction APIs */
 int trx_begin();
 int trx_commit(int trx_id);
+int trx_abort(int trx_id);
 
 #endif /* __TRX_H__ */

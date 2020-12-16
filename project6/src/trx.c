@@ -245,15 +245,15 @@ void rollback(trx_node * node)
 // already acquired trx_manager_latch
 int trx_abort(int trx_id)
 {
-	
-	acquire_trx_manager_latch();
-	
 	// printf("abort start\n");
 	trx_node * node;
 	lock_t *p, *q;
 
 	// printf("find_trx_node,,\n");
+	acquire_trx_manager_latch();
 	node = find_trx_node(trx_id);
+	release_trx_manager_latch();
+
 	if(node == NULL)
 	{
 		// already aborted or error in find_trx_node()
@@ -269,6 +269,7 @@ int trx_abort(int trx_id)
 	p = NULL;
 	q = node->head;
 
+	acquire_trx_manager_latch();
 	acquire_lock_table_latch();
 	// printf("release locks,,\n");
 	while(q != NULL)

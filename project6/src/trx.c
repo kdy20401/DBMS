@@ -207,10 +207,11 @@ void rollback_db_update(int table_id, int64_t key, char * org_value)
 	// buf_write_page_trx1(fptr, table_id, leaf_page_num, (page_t *)&leaf);
 
 	leaf_page_num = find_leaf_page(table_id, key);
-
 	fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
+
 	i = search_recordKey(&leaf, key);
 	strcpy(leaf.records[i].value, org_value);
+
 	buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
 	release_page_latch(fptr);
 }
@@ -254,7 +255,6 @@ void rollback(trx_node * node)
 // acquire trx_manager_latch
 int trx_abort(int trx_id)
 {
-	acquire_lock_table_latch();
 	acquire_trx_manager_latch();
 
 	// printf("abort start\n");
@@ -279,6 +279,7 @@ int trx_abort(int trx_id)
 	p = NULL;
 	q = node->head;
 
+	acquire_lock_table_latch();
 	// printf("release locks,,\n");
 	while(q != NULL)
 	{
@@ -294,10 +295,10 @@ int trx_abort(int trx_id)
 		// }
 		lock_release(p);
 	}
+	release_lock_table_latch();
 
 	// remove transaction node
 	remove_from_trx_table(node);
-	release_lock_table_latch();
 	release_trx_manager_latch();
 	// printf("trx_abort finished\n");
 	return trx_id;

@@ -773,8 +773,8 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     }
     else if(ret == DEADLOCK)
     {
-        trx_abort(trx_id);
         release_page_latch(fptr);
+        trx_abort(trx_id);
         // printf("trx %d's find() is aborted at key %ld in table %d\n", trx_id, key, table_id);
         return -1;
     }

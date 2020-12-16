@@ -197,14 +197,22 @@ void rollback_db_update(int table_id, int64_t key, char * org_value)
 	frame * fptr;
 	int i;
 
-	// find_leaf_page() with no acquiring a buffer and page latch
-	leaf_page_num = find_leaf_page1(table_id, key);
+	// // find_leaf_page() with no acquiring a buffer and page latch
+	// leaf_page_num = find_leaf_page1(table_id, key);
 
-	// buf_read_page_trx() with no acquiring a buffer and page latch
-	fptr = buf_read_page_trx1(table_id, leaf_page_num, (page_t *)&leaf);
+	// // buf_read_page_trx() with no acquiring a buffer and page latch
+	// fptr = buf_read_page_trx1(table_id, leaf_page_num, (page_t *)&leaf);
+	// i = search_recordKey(&leaf, key);
+	// strcpy(leaf.records[i].value, org_value);
+	// buf_write_page_trx1(fptr, table_id, leaf_page_num, (page_t *)&leaf);
+
+	leaf_page_num = find_leaf_page(table_id, key);
+
+	fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
 	i = search_recordKey(&leaf, key);
 	strcpy(leaf.records[i].value, org_value);
-	buf_write_page_trx1(fptr, table_id, leaf_page_num, (page_t *)&leaf);
+	buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
+	release_page_latch(fptr);
 }
 
 void rollback(trx_node * node)
@@ -228,7 +236,7 @@ void rollback(trx_node * node)
 	// in either case, buffer is protected from by it's latch.
 	// so rollback can be done safely using rollback_db_update() function
 	
-	ret = pthread_mutex_trylock(&buffer_manager_latch);
+	// ret = pthread_mutex_trylock(&buffer_manager_latch);
 
 	while(rb_node != NULL)
 	{
@@ -236,10 +244,10 @@ void rollback(trx_node * node)
 		rb_node = rb_node->next;
 	}
 
-	if(ret == 0)
-	{
-		pthread_mutex_unlock(&buffer_manager_latch);
-	}
+	// if(ret == 0)
+	// {
+	// 	pthread_mutex_unlock(&buffer_manager_latch);
+	// }
 }
 
 // acquire page latch

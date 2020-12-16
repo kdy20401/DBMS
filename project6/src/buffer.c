@@ -490,6 +490,49 @@ void buf_write_page_trx1(frame * fptr, int table_id, pagenum_t page_num, page_t 
     fptr->is_dirty = true;
 }
 
+void buf_write_page_trx2(int table_id, pagenum_t page_num, page_t * src)
+{
+    frame * fptr;
+
+    //use a hash table to find the frame which contains the target page
+    fptr = hash_find(table_id, page_num, &hash_table);
+
+    // target page is in the buffer pool
+    if(fptr != NULL)
+    {
+        memcpy(fptr->page, src, PAGE_SIZE);
+        fptr->is_dirty = true;
+    }
+    // target page is not in the buffer pool
+    else
+    {
+        fptr = lru_list_tail;
+
+        // this condition is for the initial circumstance
+        if(fptr->page_num != -1)
+        {
+            hash_delete(fptr, &hash_table);
+        }
+
+        if(fptr->is_dirty == true)
+        {
+            file_write_page(fptr->table_id, fptr->page_num, fptr->page);
+        }
+
+        memcpy(fptr->page, src, PAGE_SIZE);
+        fptr->is_dirty = true;
+        fptr->page_num = page_num;
+        fptr->table_id = table_id;
+
+        hash_insert(fptr, &hash_table);
+    }
+
+    // don't update lru list
+    // in most cases, buf_write_page_trx() is executed after buf_read_page_trx()
+    // so LRU list is already updated
+    // update_lru_list(fptr);
+}
+
 frame * buf_read_page_trx(int table_id, pagenum_t page_num, page_t * dest)
 {
     acquire_buffer_latch();

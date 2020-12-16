@@ -515,7 +515,7 @@ pagenum_t nt_find_leaf_page(int table_id, int64_t key)
 
 // select index k when traversing B+ tree to find target key if
 // entries[k].key <= target key < entries[k + 1].key
-int search_routingKey(internal_page_t * internal, int64_t key)
+int search_routingIndex(internal_page_t * internal, int64_t key)
 {
     int left, mid, right, num_key;
 
@@ -557,7 +557,7 @@ int search_routingKey(internal_page_t * internal, int64_t key)
     }
 }
 
-int search_recordKey(leaf_page_t * leaf, int64_t key)
+int search_recordIndex(leaf_page_t * leaf, int64_t key)
 {
     int left, mid, right;
 
@@ -620,7 +620,7 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
     {
         while(!(root.isLeaf))
         {
-            i = search_routingKey(&root, key);
+            i = search_routingIndex(&root, key);
             if(i == -1)
             {
                 next = root.leftmostdown_page_num;
@@ -669,7 +669,7 @@ pagenum_t find_leaf_page1(int table_id, int64_t key)
     {
         while(!(root.isLeaf))
         {
-            i = search_routingKey(&root, key);
+            i = search_routingIndex(&root, key);
             if(i == -1)
             {
                 next = root.leftmostdown_page_num;
@@ -738,7 +738,7 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     // read page to check whether target record exists.
     // while holding a page latch, check if the target record exists
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-    i = search_recordKey(&leaf, key);
+    i = search_recordIndex(&leaf, key);
 
     // there is no record with key
     if(i == -1)
@@ -798,7 +798,7 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
         // find a page again because the page might have been evicted from buffer pool.
         // in general design, must consider the record might have been moved to another page.
         fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-        i = search_recordKey(&leaf, key);
+        i = search_recordIndex(&leaf, key);
         strcpy(ret_val, leaf.records[i].value);
         release_page_latch(fptr);
     }
@@ -830,7 +830,7 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     // read page to check whether target record exists
     // while holding a page latch, check if the target record exists
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-    i = search_recordKey(&leaf, key);
+    i = search_recordIndex(&leaf, key);
 
     if(i == -1)
     {
@@ -890,7 +890,7 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         // find a page again because the page might have been evicted from buffer pool.
         // in general design, must consider the record might have been moved to another page.
         fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
-        i = search_recordKey(&leaf, key);
+        i = search_recordIndex(&leaf, key);
         strcpy(org_value, leaf.records[i].value); 
         strcpy(leaf.records[i].value, values);
         buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);

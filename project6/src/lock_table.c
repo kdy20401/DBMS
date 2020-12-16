@@ -260,10 +260,7 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	// create a lock object, add to record lock list and decide whether wait or work
 	lockObj = create_lock(b, trx_id, lock_mode);
 	insert_into_record_lock_list(b, lockObj);
-
-	// acquire_trx_manager_latch();
 	insert_into_trx_lock_list(lockObj);
-	// memcpy(ret_lock, lockObj, sizeof(lock_t));
 	*ret_lock = lockObj;
 
 	// acquired a lock!

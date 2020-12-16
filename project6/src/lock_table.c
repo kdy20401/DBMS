@@ -520,7 +520,6 @@ int lock_release(lock_t * lock_obj)
 	// // if not, nothing to do. predecessor will wake up successor
 
 	free(lock_obj);
-
 	return 0;
 }
 

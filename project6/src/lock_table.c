@@ -283,8 +283,8 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 			// while aborting, when waking prdecessor lock object, they acquire lock table latch
 			// if don't release, -> error occurred
 
-			// release_trx_manager_latch();
-			// release_lock_table_latch();
+			release_lock_table_latch();
+			release_trx_manager_latch();
 			return DEADLOCK;
 		}
 		else

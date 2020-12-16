@@ -240,7 +240,6 @@ int trx_abort(int trx_id)
 	if(node == NULL)
 	{
 		// already aborted or error in find_trx_node()
-		release_trx_manager_latch();
 		return 0;
 	}
 

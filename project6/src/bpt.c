@@ -865,9 +865,9 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     }
     else if(ret == DEADLOCK)
     {
+        release_page_latch(fptr);
         trx_abort(trx_id);
         // printf("trx %d's update() is aborted at key %ld in table %d\n", trx_id, key, table_id);
-        release_page_latch(fptr);
         return -1;
     }
     else if(ret == NEED_TO_WAIT)

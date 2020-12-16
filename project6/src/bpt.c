@@ -779,7 +779,7 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 	    // thread1 cannot acquire a buffer latch because thread2 is holding it.
 	    // so must release page latch before trx_abort()
         release_page_latch(fptr);
-        // trx_abort(trx_id);
+        trx_abort(trx_id);
         // printf("trx %d's find() is aborted at key %ld in table %d\n", trx_id, key, table_id);
         return -1;
     }
@@ -878,7 +878,7 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 	    // thread1 cannot acquire a buffer latch because thread2 is holding it.
 	    // so must release page latch before trx_abort()
         release_page_latch(fptr);
-        // trx_abort(trx_id);
+        trx_abort(trx_id);
         // printf("trx %d's update() is aborted at key %ld in table %d\n", trx_id, key, table_id);
         return -1;
     }

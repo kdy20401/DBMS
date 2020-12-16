@@ -197,6 +197,11 @@ void rollback_db_update(int table_id, int64_t key, char * org_value)
 	frame * fptr;
 	int i;
 
+	// unlike db_update(), existence check is not needed.
+	// record information which is represented by this function's parameters
+	// is from the rollback list of transaction node. it means that
+	// the result of db_update() operation is already reflected to buffer or disk
+
 	leaf_page_num = find_leaf_page(table_id, key);
 	fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
 
@@ -236,20 +241,26 @@ int trx_abort(int trx_id)
 	if(node == NULL)
 	{
 		// already aborted or error in find_trx_node()
-		release_trx_manager_latch();
+		// release_trx_manager_latch();
 		return 0;
 	}
 
 	// roll back all data
 	// printf("rollback,,,\n");
+
+	// the new flow of acquiring a latch
+	// : acquiring a page latch -> acquiring a lock table latch
+	// so doing rollback() while holding a lock table latch will incur deadlatch
+	// before trx_abort(), release lock table latch and transaction manager latch
+	// it doesn't matter if another transaction acquires those latches and do his work
+	// because it must wait for X lock ahead of it.
 	rollback(node);
 
 	// release all locks
 	p = NULL;
 	q = node->head;
 
-	acquire_lock_table_latch();
-	acquire_trx_manager_latch();
+	// acquire_lock_table_latch();
 	// printf("release locks,,\n");
 	while(q != NULL)
 	{
@@ -267,9 +278,12 @@ int trx_abort(int trx_id)
 	}
 
 	// remove transaction node
+	acquire_trx_manager_latch();
 	remove_from_trx_table(node);
-	release_lock_table_latch();
 	release_trx_manager_latch();
+
+	// release_lock_table_latch();
+
 	
 	// printf("trx_abort finished\n");
 	return trx_id;
@@ -312,20 +326,21 @@ int trx_begin()
 int trx_commit(int trx_id)
 {
 	// printf("trx%d commit start\n", trx_id);
-	acquire_lock_table_latch();
-	acquire_trx_manager_latch();
+	// acquire_lock_table_latch();
 
 	trx_node * target;
 	lock_t *p, *q;
 
+	acquire_trx_manager_latch();
 	target = find_trx_node(trx_id);
+	release_trx_manager_latch();
 
 	// the transaction node is already removed by trx_abort
 	// so release all latches before return error code
 	if(target == NULL)
 	{
-		release_lock_table_latch();
-		release_trx_manager_latch();
+		// release_lock_table_latch();
+		// release_trx_manager_latch();
 		// printf("trx%d commit end (ABORTED)\n", trx_id);
 
 		return 0;
@@ -349,11 +364,12 @@ int trx_commit(int trx_id)
 		lock_release(p);
 	}
 
+	acquire_trx_manager_latch();
 	remove_from_trx_table(target);
 	trx_table.trx_num--;
-
-	release_lock_table_latch();
 	release_trx_manager_latch();
+
+	// release_lock_table_latch();
     // printf("trx %d commit\n", trx_id);
 	return trx_id;
 }

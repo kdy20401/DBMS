@@ -250,7 +250,6 @@ void rollback(trx_node * node)
 	// }
 }
 
-// acquire page latch
 // acquire lock table latch
 // acquire trx_manager_latch
 int trx_abort(int trx_id)

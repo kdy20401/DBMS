@@ -634,7 +634,6 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
         }
         leaf_page_num = next;
     }
-
     return leaf_page_num;
 }
 

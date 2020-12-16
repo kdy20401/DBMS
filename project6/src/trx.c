@@ -289,7 +289,7 @@ int trx_abort(int trx_id)
 
 	// remove transaction node
 	remove_from_trx_table(node);
-	acquire_trx_manager_latch();
+	release_trx_manager_latch();
 	release_lock_table_latch();
 	
 	// printf("trx_abort finished\n");

@@ -269,8 +269,8 @@ int trx_abort(int trx_id)
 	p = NULL;
 	q = node->head;
 
-	acquire_trx_manager_latch();
 	acquire_lock_table_latch();
+	acquire_trx_manager_latch();
 	// printf("release locks,,\n");
 	while(q != NULL)
 	{
@@ -289,8 +289,8 @@ int trx_abort(int trx_id)
 
 	// remove transaction node
 	remove_from_trx_table(node);
-	release_trx_manager_latch();
 	release_lock_table_latch();
+	release_trx_manager_latch();
 	
 	// printf("trx_abort finished\n");
 	return trx_id;
@@ -333,8 +333,8 @@ int trx_begin()
 int trx_commit(int trx_id)
 {
 	// printf("trx%d commit start\n", trx_id);
-	acquire_trx_manager_latch();
 	acquire_lock_table_latch();
+	acquire_trx_manager_latch();
 
 	trx_node * target;
 	lock_t *p, *q;
@@ -345,8 +345,8 @@ int trx_commit(int trx_id)
 	// so release all latches before return error code
 	if(target == NULL)
 	{
-		release_trx_manager_latch();
 		release_lock_table_latch();
+		release_trx_manager_latch();
 		// printf("trx%d commit end (ABORTED)\n", trx_id);
 
 		return 0;
@@ -373,8 +373,8 @@ int trx_commit(int trx_id)
 	remove_from_trx_table(target);
 	trx_table.trx_num--;
 
-	release_trx_manager_latch();
 	release_lock_table_latch();
+	release_trx_manager_latch();
     // printf("trx %d commit\n", trx_id);
 	return trx_id;
 }

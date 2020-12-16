@@ -241,7 +241,6 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 
 int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t ** ret_lock)
 {
-	acquire_trx_manager_latch();
 	acquire_lock_table_latch();
 
 	lt_bucket * b;
@@ -260,14 +259,16 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	// create a lock object, add to record lock list and decide whether wait or work
 	lockObj = create_lock(b, trx_id, lock_mode);
 	insert_into_record_lock_list(b, lockObj);
+
+	acquire_trx_manager_latch();
 	insert_into_trx_lock_list(lockObj);
 	*ret_lock = lockObj;
 
 	// acquired a lock!
 	if(lockObj->status == WORKING)
 	{	
-		release_trx_manager_latch();
 		release_lock_table_latch();
+		release_trx_manager_latch();
 		return ACQUIRED;
 	}
 	// waiting for acquiring a lock
@@ -281,8 +282,8 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 			// while aborting, when waking prdecessor lock object, they acquire lock table latch
 			// if don't release, -> error occurred
 
-			release_trx_manager_latch();
 			release_lock_table_latch();
+			release_trx_manager_latch();
 			return DEADLOCK;
 		}
 		else
@@ -302,8 +303,8 @@ void lock_wait(lock_t * lock_obj)
 	trx_node * node;
 	
 	node = find_trx_node(lock_obj->trx_id);
-	release_trx_manager_latch();
 	release_lock_table_latch();
+	release_trx_manager_latch();
 	// printf("trx %d's lock attached to key %ld in table %d goes to sleep for acquiring a lock,,,,,,,\n",
 		// lock_obj->trx_id, lock_obj->sentinel->key, lock_obj->sentinel->table_id);
 

@@ -254,8 +254,9 @@ void rollback(trx_node * node)
 // already acquired trx_manager_latch
 int trx_abort(int trx_id)
 {
+	
 	acquire_trx_manager_latch();
-
+	
 	// printf("abort start\n");
 	trx_node * node;
 	lock_t *p, *q;
@@ -265,7 +266,6 @@ int trx_abort(int trx_id)
 	if(node == NULL)
 	{
 		// already aborted or error in find_trx_node()
-		// release_lock_table_latch();
 		release_trx_manager_latch();
 		return 0;
 	}
@@ -273,14 +273,12 @@ int trx_abort(int trx_id)
 	// roll back all data
 	// printf("rollback,,,\n");
 	rollback(node);
-	release_trx_manager_latch();
 
 	// release all locks
 	p = NULL;
 	q = node->head;
 
 	acquire_lock_table_latch();
-	acquire_trx_manager_latch();
 	// printf("release locks,,\n");
 	while(q != NULL)
 	{
@@ -296,11 +294,11 @@ int trx_abort(int trx_id)
 		// }
 		lock_release(p);
 	}
-	release_lock_table_latch();
 
 	// remove transaction node
 	remove_from_trx_table(node);
 	acquire_trx_manager_latch();
+	release_lock_table_latch();
 	
 	// printf("trx_abort finished\n");
 	return trx_id;

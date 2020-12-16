@@ -241,6 +241,7 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 
 int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t ** ret_lock)
 {
+	acquire_trx_manager_latch();
 	acquire_lock_table_latch();
 
 	lt_bucket * b;
@@ -260,7 +261,7 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	lockObj = create_lock(b, trx_id, lock_mode);
 	insert_into_record_lock_list(b, lockObj);
 
-	acquire_trx_manager_latch();
+	// acquire_trx_manager_latch();
 	insert_into_trx_lock_list(lockObj);
 	// memcpy(ret_lock, lockObj, sizeof(lock_t));
 	*ret_lock = lockObj;
@@ -268,8 +269,8 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	// acquired a lock!
 	if(lockObj->status == WORKING)
 	{	
-		release_lock_table_latch();
 		release_trx_manager_latch();
+		release_lock_table_latch();
 		return ACQUIRED;
 	}
 	// waiting for acquiring a lock
@@ -283,8 +284,8 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 			// while aborting, when waking prdecessor lock object, they acquire lock table latch
 			// if don't release, -> error occurred
 
-			release_lock_table_latch();
 			release_trx_manager_latch();
+			release_lock_table_latch();
 			return DEADLOCK;
 		}
 		else
@@ -292,7 +293,7 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 			// before releasing latches(page_latch, trx_manager, lock_table) acquire trx_latch
 			node = find_trx_node(lockObj->trx_id);
 			pthread_mutex_lock(&(node->trx_latch));
-			release_lock_table_latch();
+			// release_lock_table_latch();
 			return NEED_TO_WAIT;
 			// after return, lock_wait() will be called
 		}		
@@ -305,6 +306,7 @@ void lock_wait(lock_t * lock_obj)
 	
 	node = find_trx_node(lock_obj->trx_id);
 	release_trx_manager_latch();
+	release_lock_table_latch();
 	// printf("trx %d's lock attached to key %ld in table %d goes to sleep for acquiring a lock,,,,,,,\n",
 		// lock_obj->trx_id, lock_obj->sentinel->key, lock_obj->sentinel->table_id);
 

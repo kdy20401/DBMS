@@ -291,8 +291,8 @@ int trx_abort(int trx_id)
 
 	// remove transaction node
 	remove_from_trx_table(node);
-	release_lock_table_latch();
 	release_trx_manager_latch();
+	release_lock_table_latch();
 	
 	// printf("trx_abort finished\n");
 	return trx_id;
@@ -360,8 +360,8 @@ int trx_commit(int trx_id)
 	// so release all latches before return error code
 	if(node == NULL)
 	{
-		release_lock_table_latch();
 		release_trx_manager_latch();
+		release_lock_table_latch();
 		// printf("trx%d commit end (ABORTED)\n", trx_id);
 
 		return 0;
@@ -402,8 +402,8 @@ int trx_commit(int trx_id)
 	remove_from_trx_table(node);
 	trx_table.trx_num--;
 
-	release_lock_table_latch();
 	release_trx_manager_latch();
+	release_lock_table_latch();
 
     // printf("trx %d commit\n", trx_id);
 	return trx_id;

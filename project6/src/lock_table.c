@@ -276,8 +276,8 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	{
 		if(is_deadlock(lockObj))
 		{
-			release_lock_table_latch();
 			release_trx_manager_latch();
+			release_lock_table_latch();
 			return DEADLOCK;
 		}
 		else
@@ -296,8 +296,8 @@ void lock_wait(lock_t * lock_obj)
 	trx_node * node;
 	
 	node = find_trx_node(lock_obj->trx_id);
-	release_lock_table_latch();
 	release_trx_manager_latch();
+	release_lock_table_latch();
 	// printf("trx %d's lock attached to key %ld in table %d goes to sleep for acquiring a lock,,,,,,,\n",
 		// lock_obj->trx_id, lock_obj->sentinel->key, lock_obj->sentinel->table_id);
 

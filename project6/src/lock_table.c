@@ -135,108 +135,108 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// }
 
-	// when one transaction can execute two or more operations(db_find() or db_update()) to one record
-	if(pred->status == WAITING)
-	{
-		lock_obj->status = WAITING;
-	}
-	else
-	{
-		if(pred->lock_mode == EXCLUSIVE)
-		{
-			if(pred->trx_id == lock_obj->trx_id)
-			{
-				lock_obj->status = WORKING;
-			}
-			else
-			{
-				lock_obj->status = WAITING;
-			}
-		}
-		else
-		{
-			if(pred->trx_id == lock_obj->trx_id)
-			{
-				if(lock_obj->lock_mode == SHARED)
-				{
-					lock_obj->status = WORKING;
-				}
-				else
-				{
-					while(pred != NULL)
-					{
-						if(pred->trx_id != lock_obj->trx_id)
-						{
-							lock_obj->status = WAITING;
-							break;
-						}
-						pred = pred->prev;
-					}
-					if(pred == NULL)
-					{
-						lock_obj->status = WORKING;
-					}
-				}
-			}
-			else
-			{
-				if(lock_obj->lock_mode == SHARED)
-				{
-					while(pred != NULL)
-					{
-						if(pred->lock_mode == EXCLUSIVE)
-						{
-							lock_obj->status = WAITING;
-							break;
-						}
-						pred = pred->prev;
-					}
-
-					if(pred == NULL)
-					{
-						lock_obj->status = WORKING;
-					}
-				}
-				else
-				{
-					lock_obj->status = WAITING;
-				}
-			}
-		}
-	}
-
-	// // original code used to test project6
+	// // when one transaction can execute two or more operations(db_find() or db_update()) to one record
 	// if(pred->status == WAITING)
 	// {
 	// 	lock_obj->status = WAITING;
 	// }
-	// else if(pred->status == WORKING)
+	// else
 	// {
-	// 	if(pred->trx_id == lock_obj->trx_id)
+	// 	if(pred->lock_mode == EXCLUSIVE)
 	// 	{
-	// 		lock_obj->status = WORKING;	
-	// 	}
-	// 	else if(lock_obj->lock_mode == SHARED)
-	// 	{
-	// 		// when lock_obj's transaction is different from predecessor's transactioin
-	// 		// the only case lock_obj can acquire a lock directly is when all predecessor locks are S locks
-	// 		// simultaneously, lock_obj is S lock 
-	// 		while(pred != NULL)
+	// 		if(pred->trx_id == lock_obj->trx_id)
 	// 		{
-	// 			if(pred->lock_mode == EXCLUSIVE)
+	// 			lock_obj->status = WORKING;
+	// 		}
+	// 		else
+	// 		{
+	// 			lock_obj->status = WAITING;
+	// 		}
+	// 	}
+	// 	else
+	// 	{
+	// 		if(pred->trx_id == lock_obj->trx_id)
+	// 		{
+	// 			if(lock_obj->lock_mode == SHARED)
+	// 			{
+	// 				lock_obj->status = WORKING;
+	// 			}
+	// 			else
+	// 			{
+	// 				while(pred != NULL)
+	// 				{
+	// 					if(pred->trx_id != lock_obj->trx_id)
+	// 					{
+	// 						lock_obj->status = WAITING;
+	// 						break;
+	// 					}
+	// 					pred = pred->prev;
+	// 				}
+	// 				if(pred == NULL)
+	// 				{
+	// 					lock_obj->status = WORKING;
+	// 				}
+	// 			}
+	// 		}
+	// 		else
+	// 		{
+	// 			if(lock_obj->lock_mode == SHARED)
+	// 			{
+	// 				while(pred != NULL)
+	// 				{
+	// 					if(pred->lock_mode == EXCLUSIVE)
+	// 					{
+	// 						lock_obj->status = WAITING;
+	// 						break;
+	// 					}
+	// 					pred = pred->prev;
+	// 				}
+
+	// 				if(pred == NULL)
+	// 				{
+	// 					lock_obj->status = WORKING;
+	// 				}
+	// 			}
+	// 			else
 	// 			{
 	// 				lock_obj->status = WAITING;
-	// 				return;
 	// 			}
-	// 			pred = pred->prev;
 	// 		}
-	// 		lock_obj->status = WORKING;
-	// 	}
-	// 	else if(lock_obj->lock_mode == EXCLUSIVE)
-	// 	{
-	// 		lock_obj->status = WAITING;
 	// 	}
 	// }
+
+	// original code used to test project6
+	if(pred->status == WAITING)
+	{
+		lock_obj->status = WAITING;
+	}
+	else if(pred->status == WORKING)
+	{
+		if(pred->trx_id == lock_obj->trx_id)
+		{
+			lock_obj->status = WORKING;	
+		}
+		else if(lock_obj->lock_mode == SHARED)
+		{
+			// when lock_obj's transaction is different from predecessor's transactioin
+			// the only case lock_obj can acquire a lock directly is when all predecessor locks are S locks
+			// simultaneously, lock_obj is S lock 
+			while(pred != NULL)
+			{
+				if(pred->lock_mode == EXCLUSIVE)
+				{
+					lock_obj->status = WAITING;
+					return;
+				}
+				pred = pred->prev;
+			}
+			lock_obj->status = WORKING;
+		}
+		else if(lock_obj->lock_mode == EXCLUSIVE)
+		{
+			lock_obj->status = WAITING;
+		}
+	}
 }
 
 int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t ** ret_lock)

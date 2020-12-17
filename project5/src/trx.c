@@ -214,7 +214,6 @@ void trx_abort(int trx_id)
 	t = find_trx_node(trx_id);
 
 	// roll back all data
-	// printf("rollback,,,\n");
 	rollback(t);
 
 	// release all locks

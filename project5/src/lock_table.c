@@ -231,6 +231,11 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 
 }
 
+// the original latches' order was acquire_lock_table_latch() -> acquire_trx_manager_latch()
+// the reason of changed order is that i identified a race condition which might cause a disorder of transactions.
+// when sending a wake-up signal to waiting successor locks and finally release lock table latch,
+// there can be another thread who tries to acquire a lock table latch.
+// so race between waking transactions and another transactions who newly come to acquire a lock.
 lock_t * lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode)
 {
 	acquire_trx_manager_latch();

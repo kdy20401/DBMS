@@ -704,7 +704,7 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 		// {
 			// printf("trx %d acquired a X lock!!\n", trx_id);
 		// }
-
+        release_trx_manager_latch();
         strcpy(ret_val, leaf.records[i].value);
         release_page_latch(fptr);
     }

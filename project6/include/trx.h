@@ -21,6 +21,7 @@ typedef struct trx_node
     lock_t * head;
     lock_t * tail;
     rollback_t * rollback_list;
+    uint64_t lastLSN;
     pthread_mutex_t trx_latch;
     struct trx_node * next;
 }trx_node;
@@ -57,4 +58,76 @@ int trx_begin();
 int trx_commit(int trx_id);
 int trx_abort(int trx_id);
 
+
+
+// recovery
+
+// begin, commit, rollback log
+typedef struct bcrlog
+{
+    int log_size;
+    uint64_t LSN;
+    uint64_t prevLSN;
+    int trx_id;
+    int type;
+}bcrlog_t;
+
+typedef struct updateLog
+{
+    int log_size;
+    uint64_t LSN;
+    uint64_t prevLSN;
+    int trx_id;
+    int type;
+    int table_id;
+    int pagenum;
+    int offset;
+    int dataLength;
+    char oldImage[120];
+    char newImage[120];
+}updateLog_t;
+
+typedef struct compensateLog
+{
+    int log_size;
+    uint64_t LSN;
+    uint64_t prevLSN;
+    int trx_id;
+    int type;
+    int table_id;
+    int pagenum;
+    int offset;
+    int dataLength;
+    char oldImage[120];
+    char newImage[120];
+    uint64_t nextUndoLSN;
+}compensateLog_t;
+
+#define LOG_BUF_SIZE 50000 // 50MB
+#define BCR_LOG_SIZE 28
+#define UPDATE_LOG_SIZE 288
+#define COMPENSATE_LOG_SIZE 296
+
+#define BEGIN 0
+#define UPDATE 1
+#define COMMIT 2
+#define ROLLBACK 3
+#define COMPENSATE 4
+
+// pthread_mutex_t log_manager_latch;
+pthread_mutex_t log_buffer_latch;
+
+char * logBuffer;
+uint64_t logBufferTail;
+uint64_t flushedLSN;
+int logDB; // log data file descripter
+
+void acquire_log_buffer_latch();
+void release_log_buffer_latch();
+int init_log(char * log_path);
+void flush_log_buffer();
+void analysis(char * log_msgpath);
+
+bool winner[10000000];
+bool loser[10000000];
 #endif /* __TRX_H__ */

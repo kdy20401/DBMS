@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 void acquire_trx_manager_latch()
 {
@@ -67,6 +70,7 @@ trx_node * create_trx_node(int trx_id)
 	new_node->tail = NULL;
 	new_node->checked = false;
 	new_node->rollback_list = NULL;
+	new_node->lastLSN = 0;
 	pthread_mutex_init(&(new_node->trx_latch), NULL);
 	new_node->next = NULL;
 
@@ -225,7 +229,6 @@ void rollback(trx_node * node)
 	}
 }
 
-// already acquired trx_manager_latch
 int trx_abort(int trx_id)
 {
 	// printf("abort start\n");
@@ -252,6 +255,16 @@ int trx_abort(int trx_id)
 	// before trx_abort(), release lock table latch and transaction manager latch
 	// it doesn't matter if another transaction acquires those latches and do his work
 	// because it must wait for X lock ahead of it.
+	acquire_log_buffer_latch();
+	bcrlog_t rollbackLog;
+	rollbackLog.log_size = BCR_LOG_SIZE;
+	rollbackLog.LSN = (logBufferTail == 0) ? 0 : logBufferTail;	
+	rollbackLog.prevLSN = node->lastLSN;
+	rollbackLog.trx_id = trx_id;
+	rollbackLog.type = ROLLBACK;
+	logBufferTail += BCR_LOG_SIZE;
+	memcpy(logBuffer + (rollbackLog.LSN - flushedLSN), (void *)&rollbackLog, BCR_LOG_SIZE);
+	release_log_buffer_latch();
 	rollback(node);
 
 	// release all locks
@@ -308,6 +321,19 @@ int trx_begin()
 		return 0;
 	}
 
+	acquire_log_buffer_latch();
+
+	bcrlog_t beginLog;
+	beginLog.log_size = BCR_LOG_SIZE;
+	beginLog.LSN = (logBufferTail == 0) ? 0 : logBufferTail;	
+	beginLog.prevLSN = node->lastLSN;
+	beginLog.trx_id = trx_id;
+	beginLog.type = BEGIN;
+	logBufferTail += BCR_LOG_SIZE;
+	memcpy(logBuffer + (beginLog.LSN - flushedLSN), (void *)&beginLog, BCR_LOG_SIZE);
+
+	release_log_buffer_latch();
+
 	insert_into_trx_table(node);
 	release_trx_manager_latch();
     // printf("trx %d begin\n", trx_id);
@@ -325,14 +351,14 @@ int trx_commit(int trx_id)
 	acquire_lock_table_latch();
 	acquire_trx_manager_latch();
 
-	trx_node * target;
+	trx_node * node;
 	lock_t *p, *q;
 
-	target = find_trx_node(trx_id);
+	node = find_trx_node(trx_id);
 
 	// the transaction node is already removed by trx_abort
 	// so release all latches before return error code
-	if(target == NULL)
+	if(node == NULL)
 	{
 		release_lock_table_latch();
 		release_trx_manager_latch();
@@ -342,7 +368,7 @@ int trx_commit(int trx_id)
 	}
 
 	p = NULL;
-	q = target->head;
+	q = node->head;
 
 	while(q != NULL)
 	{
@@ -359,11 +385,246 @@ int trx_commit(int trx_id)
 		lock_release(p);
 	}
 
-	remove_from_trx_table(target);
+	acquire_log_buffer_latch();
+
+	bcrlog_t commitLog;
+	commitLog.log_size = BCR_LOG_SIZE;
+	commitLog.LSN = (logBufferTail == 0) ? 0 : logBufferTail;
+	commitLog.prevLSN = node->lastLSN;
+	commitLog.trx_id = trx_id;
+	commitLog.type = BEGIN;
+	logBufferTail += BCR_LOG_SIZE;
+	memcpy(logBuffer + (commitLog.LSN - flushedLSN), (void *)&commitLog, BCR_LOG_SIZE);
+	flush_log_buffer();
+
+	release_log_buffer_latch();
+
+	remove_from_trx_table(node);
 	trx_table.trx_num--;
 
 	release_lock_table_latch();
 	release_trx_manager_latch();
+
     // printf("trx %d commit\n", trx_id);
 	return trx_id;
 }
+
+void acquire_log_buffer_latch()
+{
+	if(pthread_mutex_lock(&log_buffer_latch) != 0)
+	{
+		printf("acquire_log_buffer_latch() failed\n");
+		exit(0);
+	}
+}
+
+void release_log_buffer_latch()
+{
+	if(pthread_mutex_unlock(&log_buffer_latch) != 0)
+	{
+		printf("release_log_buffer_latch() failed\n");
+		exit(0);
+	}
+}
+
+void flush_log_buffer()
+{
+	int ret;
+	int log_size;
+
+	log_size = logBufferTail - flushedLSN;
+
+	ret = pwrite(logDB, logBuffer, log_size, flushedLSN);
+
+	if(ret == log_size)
+	{
+		fsync(logDB);
+	}
+	else if(ret == -1)
+	{
+        printf("pwrite() failed\n");
+        printf("flush_log_buffer() failed\n");
+        printf("error: %s\n", strerror(errno));
+	}
+
+	flushedLSN += log_size;
+}
+
+// void create_log(trx_node * node, int type)
+// {
+// 	switch (type)
+// 	{
+// 		case BEGIN:
+// 			bcrlog_t beginLog;
+// 			beginLog.log_size = BCR_LOG_SIZE;
+
+// 			if(logBufferTail == 0)
+// 			{
+// 				beginLog.LSN = 0;
+// 			}
+// 			else
+// 			{
+// 				beginLog.LSN = logBufferTail;
+// 			}
+
+// 			beginLog.prevLSN = node->lastLSN;
+// 			beginLog.trx_id = trx_id;
+// 			beginLog.type = BEGIN;
+// 			logBufferTail += BCR_LOG_SIZE;
+
+// 			memcpy(logBuffer + beginLog.LSN, (void *)&beginLog, BCR_LOG_SIZE);
+// 			break;
+// 		case UPDATE:
+
+// 			break;
+// 		case COMMIT:
+// 			bcrlog_t updateLog;
+// 			updateLog.log_size = BCR_LOG_SIZE;
+
+// 			if(logBufferTail == 0)
+// 			{
+// 				updateLog.LSN = 0;
+// 			}
+// 			else
+// 			{
+// 				updateLog.LSN = logBufferTail;
+// 			}
+
+// 			updateLog.prevLSN = node->lastLSN;
+// 			updateLog.trx_id = trx_id;
+// 			updateLog.type = UPDATE;
+// 			logBufferTail += BCR_LOG_SIZE;
+
+// 			memcpy(logBuffer + updateLog.LSN, (void *)updateLog, BCR_LOG_SIZE);
+// 			break;
+// 		case ROLLBACK:
+// 			break;
+// 		case COMPENSATE:
+// 			break;
+
+// 		default:
+// 			break;
+// 		}
+// }
+
+int init_log(char * log_path)
+{
+	// allocate log buffer
+	logBuffer = (char *)malloc(sizeof(LOG_BUF_SIZE));
+	
+	if(logBuffer == NULL)
+	{
+		printf("malloc() failed\n");
+		printf("init_log() failed\n");
+		return -1;
+	}
+
+	// initialize log manater mutex
+	pthread_mutex_init(&log_buffer_latch, NULL);
+
+	logDB = open(log_path, O_RDWR | O_CREAT, 0644);
+	if(logDB == -1)
+	{
+		printf("open() failed\n");
+		printf("init_log() failed\n");
+		return -1;
+	}
+
+	logBufferTail = 0;
+	flushedLSN = 0;
+	return 0;
+}
+
+void analysis(char * log_msgpath)
+{
+	FILE * fp;
+	int LSN, size, type, offset, ret, trx_id, max_trx_id;
+	bcrlog_t log_header, bcrLog;
+	updateLog_t updateLog;
+	compensateLog_t compensateLog;
+
+	fp = fopen(log_msgpath, "w+");
+	if(fp == NULL)
+	{
+		printf("fopen() failed\n");
+		printf("analysis() failed\n");
+	}
+	
+	max_trx_id = -1;
+	offset = 0;
+
+	fprintf(fp, "[ANALYSIS] Analysis path start\n");
+
+	ret = pread(logDB, (void *)&log_header, BCR_LOG_SIZE, offset);
+
+	while(ret > 0)
+	{
+		type = log_header.type;
+
+		if(type == BEGIN)
+		{
+			pread(logDB, (void *)&bcrLog, BCR_LOG_SIZE, offset);
+			trx_id = bcrLog.trx_id;
+			max_trx_id = (trx_id > max_trx_id) ? trx_id : max_trx_id;
+			loser[trx_id] = true;
+			offset += BCR_LOG_SIZE;
+
+		}
+		else if(type == UPDATE)
+		{
+			pread(logDB, (void *)&updateLog, UPDATE_LOG_SIZE, offset);
+			trx_id = updateLog.trx_id;
+			max_trx_id = (trx_id > max_trx_id) ? trx_id : max_trx_id;
+			offset += UPDATE_LOG_SIZE;
+		}
+		else if(type == COMMIT)
+		{
+			pread(logDB, (void *)&bcrLog, BCR_LOG_SIZE, offset);
+			trx_id = bcrLog.trx_id;
+			max_trx_id = (trx_id > max_trx_id) ? trx_id : max_trx_id;
+			loser[trx_id] = false;
+			winner[trx_id] = true;
+			offset += BCR_LOG_SIZE;
+
+		}
+		else if(type == ROLLBACK)
+		{
+			pread(logDB, (void *)&bcrLog, BCR_LOG_SIZE, offset);
+			trx_id = bcrLog.trx_id;
+
+			offset += BCR_LOG_SIZE;
+
+		}
+		else // COMPENSATE
+		{
+			pread(logDB, (void *)&compensateLog, COMPENSATE_LOG_SIZE, offset);
+			trx_id = compensateLog.trx_id;
+			offset += COMPENSATE_LOG_SIZE;
+		}
+		
+		ret = pread(logDB, (void *)&log_header, BCR_LOG_SIZE, offset);
+
+	}
+
+	fprintf(fp, "[ANALYSIS] Analysis success.");
+	fprintf(fp, " Winner: ");
+
+	for(int i = 1; i <= max_trx_id; i++)
+	{
+		if(winner[i])
+		{
+			fprintf(fp, "%d ", i);
+		}
+	}
+	fprintf(fp, ", Loser: ");
+
+	for(int i = 1; i <= max_trx_id; i++)
+	{
+		if(loser[i])
+		{
+			fprintf(fp, "%d ", i);
+		}
+	}
+	fprintf(fp, "\n");
+}
+

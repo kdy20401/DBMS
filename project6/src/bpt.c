@@ -92,9 +92,9 @@ void init_table(int table_id)
 int get_table_id(char * pathname)
 {
     int i;
+
     for(i = 1; i <= MAX_TABLE; i++)
     {
-        // printf("table id = %d, file name = %s\n", i, tables[i].pathname);
         if(strcmp(tables[i].pathname, pathname) == 0)
         {
             return i;
@@ -111,14 +111,26 @@ int get_table_id(char * pathname)
 // after opening a table, return it's unique table id
 int open_table(char * pathname)
 {
-    // printf("open table!!\n");
-
-    int fd, table_id;
+    int fd, len, table_id;
+    char str[3]; // str = {'some character', '\0', '\0'}
 
     if(strlen(pathname) > 20)
     {
         printf("data file's name is too long! it should be less than or equal to 20.\n");
         return -1;
+    }
+
+    if(table_num == MAX_TABLE)
+    {
+        return - 1;
+    }
+
+    strncpy(str, pathname + 4, strlen(pathname) - 4);
+    table_id = atoi(str);
+    
+    if(table_id > 10 || table_id < 1)
+    {
+        return - 1;
     }
 
     fd = open(pathname, O_RDWR | O_CREAT | O_EXCL, 0644);
@@ -127,47 +139,21 @@ int open_table(char * pathname)
     if(fd != -1)
     {
         table_num++;
-
-        if(table_num > MAX_TABLE)
+        tables[table_id].fd = fd;
+        tables[table_id].is_opened = true;
+        strcpy(tables[table_id].pathname, pathname);
+        init_table(table_id);
+    }
+    // when data file already exists
+    else if(fd == -1 && EEXIST == errno)
+    {
+        if(tables[table_id].is_opened)
         {
-            printf("table number exceeds the max table number %d,,!\n", MAX_TABLE);
-            close(fd);
-            remove(pathname);
             return -1;
         }
 
-        tables[table_num].fd = fd;
-        tables[table_num].is_opened = true;
-        strcpy(tables[table_num].pathname, pathname);
-        init_table(table_num);
-        table_id = table_num;
-        // printf("datafile (table id = %d) is newly created!\n", table_id);
-        
-    }
-    // when data file already exists
-    else if((fd == -1) && (EEXIST == errno))
-    {
-        printf("datafile %s already exists!\n", pathname);
+        table_num++;
         fd = open(pathname, O_RDWR);
-        table_id = get_table_id(pathname);
-
-        // when opening an existing data file which has been created in previous program execution time
-        // so, increment table_num which is the number of table opened in the current execution time
-        if(table_id == -1)
-        {
-            table_num++;
-
-            if(table_num > MAX_TABLE)
-            {
-                printf("table number exceeds the max table number %d,,!\n", MAX_TABLE);
-                close(fd);
-                return -1;
-            }
-            
-            table_id = table_num;
-            strcpy(tables[table_id].pathname, pathname);
-        }
-
         tables[table_id].fd = fd;
         tables[table_id].is_opened = true;
         // printf("datafile (table id = %d) is opened!\n", table_id);
@@ -212,6 +198,7 @@ int close_table(int table_id)
 
     tables[table_id].is_opened = false;
     close(tables[table_id].fd);
+    table_num--;
     return 0;
 }
 
@@ -637,55 +624,6 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
     return leaf_page_num;
 }
 
-// this find_leaf_page1() function is using buf_read_page_trx1()
-// which doesn't acquire buffer latch and page latch. this function is only used to rollback
-pagenum_t find_leaf_page1(int table_id, int64_t key)
-{   
-    // printf("finding a leaf page,,,\n");
-    header_page_t header;
-    internal_page_t root;
-    pagenum_t root_page_num, leaf_page_num, next;
-    int i;
-    frame * fptr;
-
-    buf_read_page_trx1(table_id, 0, (page_t *)&header);
-
-    // there is no root
-    if(header.root_page_num == 0)
-    {
-        // printf("there is no root\n");
-        return -1;
-    }
-
-    root_page_num = header.root_page_num;
-    buf_read_page_trx1(table_id, root_page_num, (page_t *)&root);
-
-    // root == leaf
-    if(!!(root.isLeaf))
-    {
-        leaf_page_num = root_page_num;
-    }
-    else
-    {
-        while(!(root.isLeaf))
-        {
-            i = search_routingIndex(&root, key);
-            if(i == -1)
-            {
-                next = root.leftmostdown_page_num;
-            }
-            else
-            {
-                next = root.entries[i].pagenum;
-            }
-            fptr = buf_read_page_trx1(table_id, next, (page_t *)&root);
-        }
-        leaf_page_num = next;
-    }
-
-    return leaf_page_num;
-}
-
 // db_find() which does not provide transaction
 int nt_db_find(int table_id, int64_t key, char * ret_val)
 {
@@ -822,6 +760,7 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     leaf_page_t leaf;
     frame * fptr;
     lock_t * record_lock;
+    trx_node * node;
     char org_value[120];
     int i, ret;
 
@@ -851,6 +790,29 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 
     if(ret == ACQUIRED)
     {
+
+        // write log buffer ahead 
+        acquire_log_buffer_latch();
+
+        updateLog_t updateLog;
+	    updateLog.log_size = UPDATE_LOG_SIZE;
+	    updateLog.LSN = (logBufferTail == 0) ? 0 : logBufferTail;
+        node = find_trx_node(trx_id);
+        release_trx_manager_latch();
+	    updateLog.prevLSN = node->lastLSN;
+	    updateLog.trx_id = trx_id;
+	    updateLog.type = UPDATE;
+        updateLog.table_id = table_id;
+        updateLog.pagenum = leaf_page_num;
+        updateLog.offset = ((leaf_page_num * PAGE_SIZE) + (128 + 4 * i + 8)) % PAGE_SIZE;
+        updateLog.dataLength = 120;
+        strcpy(updateLog.oldImage, leaf.records[i].value);
+        strcpy(updateLog.newImage, values);
+	    logBufferTail += UPDATE_LOG_SIZE;
+	    memcpy(logBuffer + (updateLog.LSN - flushedLSN), (void *)&updateLog, UPDATE_LOG_SIZE);
+	    
+        release_log_buffer_latch();
+
         // leaf page was already loaded to memory to check the existence of target record.
         // in this process, page latch is acquired. after, the record lock is directly acquired
         // without waiting. so just use that leaf page because the target record is still in that page.
@@ -905,6 +867,29 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         // because of structure modification. so should retraverse index)
         fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
         i = search_recordIndex(&leaf, key);
+
+        acquire_trx_manager_latch();
+        acquire_log_buffer_latch();
+
+        updateLog_t updateLog;
+	    updateLog.log_size = UPDATE_LOG_SIZE;
+	    updateLog.LSN = (logBufferTail == 0) ? 0 : logBufferTail;
+        node = find_trx_node(trx_id);
+        release_trx_manager_latch();
+	    updateLog.prevLSN = node->lastLSN;
+	    updateLog.trx_id = trx_id;
+	    updateLog.type = UPDATE;
+        updateLog.table_id = table_id;
+        updateLog.pagenum = leaf_page_num;
+        updateLog.offset = ((leaf_page_num * PAGE_SIZE) + (128 + 4 * i + 8)) % PAGE_SIZE;
+        updateLog.dataLength = 120;
+        strcpy(updateLog.oldImage, leaf.records[i].value);
+        strcpy(updateLog.newImage, values);
+	    logBufferTail += UPDATE_LOG_SIZE;
+	    memcpy(logBuffer + (updateLog.LSN - flushedLSN), (void *)&updateLog, UPDATE_LOG_SIZE);
+	    
+        release_log_buffer_latch();
+
         strcpy(org_value, leaf.records[i].value); 
         strcpy(leaf.records[i].value, values);
         buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);

@@ -36,6 +36,7 @@ typedef struct
     pagenum_t free_page_num;
     pagenum_t root_page_num;
     pagenum_t page_num;
+    int64_t pageLsn;
     int reserved[1018];
 }header_page_t;
 
@@ -43,7 +44,9 @@ typedef struct
 {
     page_t p;
     pagenum_t next_free_page_num;
-    int reserved[1022];
+    int reserved1[4];
+    int64_t pageLsn;
+    int reserved2[1018];
 }free_page_t;
 
 typedef struct
@@ -52,7 +55,9 @@ typedef struct
     pagenum_t parent_page_num;
     uint32_t isLeaf;
     uint32_t num_key;
-    int reserved[26];
+    int reserved1[2];
+    int64_t pageLsn;
+    int reserved2[22];
     pagenum_t leftmostdown_page_num;
     entry entries[MAX_ENTRY];
     // entry entries[MAX_ENTRY];
@@ -65,7 +70,9 @@ typedef struct
     pagenum_t parent_page_num;
     uint32_t isLeaf;
     uint32_t num_key;
-    int reserved[26];
+    int reserved1[2];
+    int64_t pageLsn;
+    int reserved2[22];
     pagenum_t right_sibling_page_num;
     record records[MAX_RECORD];
     // record records[MAX_RECORD];

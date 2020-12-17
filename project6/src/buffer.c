@@ -1,4 +1,5 @@
 #include "table.h"
+#include "trx.h"
 #include "lock_table.h"
 #include "buffer.h"
 #include "file.h"
@@ -191,9 +192,10 @@ void init_lru_list(int frame_num)
 
 // create a buffer which contains buf_num number of frames, initialize frame information and buffer manager latch.
 // create a hash table which helps to find a frame fast which contains target page. also initialize LRU list
-
-int init_db(int buf_num)
+int init_db(int buf_num, int flag, int log_num, char * log_path, char * logmsg_path)
 {
+    int ret;
+
     if(buf_num <= 0)
     {
         return -1;
@@ -238,6 +240,18 @@ int init_db(int buf_num)
 
     // initialize lock table and transaction table
     init_lock_table();
+
+    // initialize log data structures
+    ret = init_log(log_path);
+    if(ret == -1)
+    {
+        return -1;
+    }
+    
+    // and finally recovery starts
+    analysis(logmsg_path);
+    // after reaching the last operation flag refers,
+    // flush all buffer page and log buffer contents
     return 0;
 }
 
@@ -431,108 +445,6 @@ void buf_free_page(int table_id, pagenum_t pagenum)
     buf_write_page(table_id, pagenum, (page_t *)&tmp);
 }
 
-// this buf_read_page_trx1() function is same as buf_read_page_trx()
-// but doesn't acquire buffer latch and page latch. this function is only used to rollback
-frame * buf_read_page_trx1(int table_id, pagenum_t page_num, page_t * dest)
-{
-    frame * fptr;
-    int ret;
-
-    //use a hash table to find the frame which contains the target page
-    fptr = hash_find(table_id, page_num, &hash_table);
-
-    //if the page is in the buffer pool
-    if(fptr != NULL)
-    {
-        // ret = pthread_mutex_trylock(&fptr->page_latch);
-        memcpy(dest, fptr->page, PAGE_SIZE);
-    }
-    //if the page is not in the pool, get page from the disk!
-    else
-    {
-        // eviction
-        fptr = lru_list_tail;
-        // ret = pthread_mutex_trylock(&fptr->page_latch);
-
-        // delete existing frame information in hash table
-        // this condition is for the initial circumstance
-        if(fptr->page_num != -1)
-        {
-            hash_delete(fptr, &hash_table);
-        }
-
-        if(fptr->is_dirty == true)
-        {
-            file_write_page(fptr->table_id, fptr->page_num, fptr->page);
-        }
-
-        file_read_page(table_id, page_num, fptr->page);
-        memcpy(dest, fptr->page, PAGE_SIZE);
-        fptr->is_dirty = false;
-        fptr->page_num = page_num;
-        fptr->table_id = table_id;
-
-        hash_insert(fptr, &hash_table);
-    }
-
-    // this function is used to rollback, so i think updating LRU is meaningless.
-    // however, including update_lru_list() incurs segmentation fault
-    // there maybe a race condition with another thread's update_lru_list() while rollback
-    // -> when pthread_mutex_trylock() fails
-    // update_lru_list(fptr);
-
-    return fptr;
-}
-
-void buf_write_page_trx1(frame * fptr, int table_id, pagenum_t page_num, page_t * src)
-{
-    memcpy(fptr->page, src, PAGE_SIZE);
-    fptr->is_dirty = true;
-}
-
-void buf_write_page_trx2(int table_id, pagenum_t page_num, page_t * src)
-{
-    frame * fptr;
-
-    //use a hash table to find the frame which contains the target page
-    fptr = hash_find(table_id, page_num, &hash_table);
-
-    // target page is in the buffer pool
-    if(fptr != NULL)
-    {
-        memcpy(fptr->page, src, PAGE_SIZE);
-        fptr->is_dirty = true;
-    }
-    // target page is not in the buffer pool
-    else
-    {
-        fptr = lru_list_tail;
-
-        // this condition is for the initial circumstance
-        if(fptr->page_num != -1)
-        {
-            hash_delete(fptr, &hash_table);
-        }
-
-        if(fptr->is_dirty == true)
-        {
-            file_write_page(fptr->table_id, fptr->page_num, fptr->page);
-        }
-
-        memcpy(fptr->page, src, PAGE_SIZE);
-        fptr->is_dirty = true;
-        fptr->page_num = page_num;
-        fptr->table_id = table_id;
-
-        hash_insert(fptr, &hash_table);
-    }
-
-    // don't update lru list
-    // in most cases, buf_write_page_trx() is executed after buf_read_page_trx()
-    // so LRU list is already updated
-    // update_lru_list(fptr);
-}
-
 frame * buf_read_page_trx(int table_id, pagenum_t page_num, page_t * dest)
 {
     acquire_buffer_latch();
@@ -564,6 +476,9 @@ frame * buf_read_page_trx(int table_id, pagenum_t page_num, page_t * dest)
 
         if(fptr->is_dirty == true)
         {
+            acquire_log_buffer_latch();
+            flush_log_buffer();
+            release_log_buffer_latch();
             file_write_page(fptr->table_id, fptr->page_num, fptr->page);
         }
 
@@ -610,6 +525,9 @@ void buf_write_page_trx(int table_id, pagenum_t page_num, page_t * src)
 
         if(fptr->is_dirty == true)
         {
+            acquire_log_buffer_latch();
+            flush_log_buffer();
+            release_log_buffer_latch();
             file_write_page(fptr->table_id, fptr->page_num, fptr->page);
         }
 

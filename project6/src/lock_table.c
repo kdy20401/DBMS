@@ -267,8 +267,8 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 	// acquired a lock!
 	if(lockObj->status == WORKING)
 	{	
+		release_trx_manager_latch();
 		release_lock_table_latch();
-		// release_trx_manager_latch();
 		return ACQUIRED;
 	}
 	// waiting for acquiring a lock

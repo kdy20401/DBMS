@@ -704,7 +704,7 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 		// {
 			// printf("trx %d acquired a X lock!!\n", trx_id);
 		// }
-        release_trx_manager_latch();
+        // release_trx_manager_latch(); // for db_update(), didn't release trx_manager_latch 
         strcpy(ret_val, leaf.records[i].value);
         release_page_latch(fptr);
     }
@@ -791,14 +791,16 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     if(ret == ACQUIRED)
     {
 
+        acquire_trx_manager_latch();
+        node = find_trx_node(trx_id);
+        release_trx_manager_latch();
+
         // write log buffer ahead 
         acquire_log_buffer_latch();
 
         updateLog_t updateLog;
 	    updateLog.log_size = UPDATE_LOG_SIZE;
 	    updateLog.LSN = (logBufferTail == 0) ? 0 : logBufferTail;
-        node = find_trx_node(trx_id);
-        release_trx_manager_latch();
 	    updateLog.prevLSN = node->lastLSN;
 	    updateLog.trx_id = trx_id;
 	    updateLog.type = UPDATE;
@@ -869,13 +871,14 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         i = search_recordIndex(&leaf, key);
 
         acquire_trx_manager_latch();
+        node = find_trx_node(trx_id);
+        release_trx_manager_latch();
+
         acquire_log_buffer_latch();
 
         updateLog_t updateLog;
 	    updateLog.log_size = UPDATE_LOG_SIZE;
 	    updateLog.LSN = (logBufferTail == 0) ? 0 : logBufferTail;
-        node = find_trx_node(trx_id);
-        release_trx_manager_latch();
 	    updateLog.prevLSN = node->lastLSN;
 	    updateLog.trx_id = trx_id;
 	    updateLog.type = UPDATE;

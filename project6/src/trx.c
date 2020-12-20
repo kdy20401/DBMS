@@ -256,6 +256,7 @@ int trx_abort(int trx_id)
 	// it doesn't matter if another transaction acquires those latches and do his work
 	// because it must wait for X lock ahead of it.
 	acquire_log_buffer_latch();
+	
 	bcrlog_t rollbackLog;
 	rollbackLog.log_size = BCR_LOG_SIZE;
 	rollbackLog.LSN = (logBufferTail == 0) ? 0 : logBufferTail;	
@@ -264,7 +265,9 @@ int trx_abort(int trx_id)
 	rollbackLog.type = ROLLBACK;
 	logBufferTail += BCR_LOG_SIZE;
 	memcpy(logBuffer + (rollbackLog.LSN - flushedLSN), (void *)&rollbackLog, BCR_LOG_SIZE);
+	
 	release_log_buffer_latch();
+
 	rollback(node);
 
 	// release all locks

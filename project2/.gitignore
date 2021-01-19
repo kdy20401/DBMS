@@ -1,4 +1,4 @@
-/.vscode
-/make_datafile.c
-/note.txt
-/main
+main
+make_datafile.c
+note.txt
+.vscode

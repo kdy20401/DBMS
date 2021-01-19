@@ -2,20 +2,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
 #include <errno.h>
 #include <string.h>
 
-#define FREE_PAGE_NUM 10
 extern uint64_t fd;
 
 // make a 10 free pages of free page list
 // and return the first free page number
 pagenum_t make_free_page(header_page_t * header)
 {
-    int i;
-    free_page_t tmp[10];
-    int start_free_page_num, page_num;
+    free_page_t tmp[FREE_PAGE_NUM];
+    int i, start_free_page_num, page_num;
 
     page_num = header->page_num;
     start_free_page_num = page_num;
@@ -39,13 +36,13 @@ pagenum_t make_free_page(header_page_t * header)
 
     for(i = 0; i < FREE_PAGE_NUM; i++)
     {
-        // printf("free page(#%d) is created!!!!\n", start_free_page_num);
         file_write_page(start_free_page_num, (page_t *)&tmp[i]);
         start_free_page_num++;
     }
 
     return header->free_page_num;
 }
+
 // first, find free pages from free page list.
 // if free pages don't exist, extend the file and make new free pages
 // and allocate first free page in free page list
@@ -56,18 +53,15 @@ pagenum_t file_alloc_page()
 
     file_read_page(0, (page_t *)&header);
 
-    free_page_num = header.free_page_num; // 2
-    page_num = header.page_num; // 11
+    free_page_num = header.free_page_num;
+    page_num = header.page_num;
 
+    // if there is no free page, extend data file by making 10 new free pages
     if(free_page_num == 0)
     {
-        // printf("there are no free pages. make a free page list,,\n");
-        //make 10 new free pages
         free_page_num = make_free_page(&header);
     }
     
-
-    // printf("get free pages from free page list,,\n");
     //get free pages from free page list
     free_page_t tmp;
     int next_free_page;
@@ -80,7 +74,7 @@ pagenum_t file_alloc_page()
     return free_page_num;
 }
 
-// make pagenum page a free page
+// make internal or leaf page to free page. free page is inserted to the free page list.
 void file_free_page(pagenum_t pagenum)
 {
     free_page_t tmp;
@@ -104,7 +98,7 @@ void file_free_page(pagenum_t pagenum)
     file_write_page(pagenum, (page_t *)&tmp);
 }
 
-// load on-disk page information into in-memory page
+// load page corresponding to page number from disk to page of in-memory structure dest
 void file_read_page(pagenum_t pagenum, page_t * dest)
 {
     int ret;
@@ -136,7 +130,7 @@ void file_read_page(pagenum_t pagenum, page_t * dest)
     }
 }
 
-// load in-memory page information into on-disk page
+// write page of in-memory structure src to page corresponding to page number in disk.
 void file_write_page(pagenum_t pagenum, const page_t * src)
 {
     int ret;

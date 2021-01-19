@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "diskbpt.h"
+#include "bpt.h"
 
 
 int main(int argc, char ** argv)

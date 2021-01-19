@@ -55,12 +55,9 @@
  * diskbpt.c which is a disk-based b+ tree is based on the bpt.c
  * above annotations contains information of bpt.c (e.g. copyright,,) 
 */
-#include "diskbpt.h"
-
+#include "bpt.h"
 #include <stdio.h>
 #include <stdlib.h>
-
-
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>

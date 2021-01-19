@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+/* PAGE TYPE*/
 #define PAGE_SIZE 4096
 #define MAX_RECORD 31
 #define MAX_ENTRY 248
@@ -58,12 +59,16 @@ typedef struct {
     record records[31];
 }leaf_page_t;
 
+/* FILE MANAGER */
+#define FREE_PAGE_NUM 10
 uint64_t fd;
 
+// file manager API
 pagenum_t file_alloc_page();
 void file_free_page(pagenum_t pagenum);
 void file_read_page(pagenum_t pagenum, page_t * dest);
 void file_write_page(pagenum_t pagenum, const page_t * src);
-pagenum_t make_free_page(header_page_t * header);
+
+pagenum_t make_free_page(header_page_t * header); // helper function for file_alloc_page()
 
 #endif

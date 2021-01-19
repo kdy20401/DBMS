@@ -13,10 +13,10 @@ LIBS=lib/
 TARGET_SRC:=$(SRCDIR)main.c
 TARGET_OBJ:=$(SRCDIR)main.o
 
-OBJECTS = $(SRCDIR)main.o $(SRCDIR)diskbpt.o $(SRCDIR)file.o
+OBJECTS = $(SRCDIR)main.o $(SRCDIR)bpt.o $(SRCDIR)file.o
 
 # Include more files if you write another source file.
-SRCS_FOR_LIB:=$(SRCDIR)diskbpt.c $(SRCDIR)file.c
+SRCS_FOR_LIB:=$(SRCDIR)bpt.c $(SRCDIR)file.c
 OBJS_FOR_LIB:=$(SRCS_FOR_LIB:.c=.o)
 
 CFLAGS+= -g -fPIC -I $(INC)
@@ -42,6 +42,6 @@ static_library:
 
 
 # dependency
-$(SRCDIR)diskbpt.o : $(SRCDIR)diskbpt.c $(INC)diskbpt.h $(INC)file.h 
+$(SRCDIR)bpt.o : $(SRCDIR)bpt.c $(INC)bpt.h $(INC)file.h 
 $(SRCDIR)file.o : $(SRCDIR)file.c $(INC)file.h
-$(SRCDIR)main.o : $(SRCDIR)main.c $(INC)diskbpt.h $(INC)file.h
+$(SRCDIR)main.o : $(SRCDIR)main.c $(INC)bpt.h $(INC)file.h

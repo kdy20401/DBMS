@@ -1,4 +1,4 @@
-#include "diskbpt.h"
+#include "bpt.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

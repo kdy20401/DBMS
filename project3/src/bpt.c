@@ -56,7 +56,7 @@
  * above annotations contains information of bpt.c (e.g. copyright,,) 
 */
 
-#include "diskbpt.h"
+#include "bpt.h"
 #include "file.h"
 #include "buffer.h"
 #include "table.h"

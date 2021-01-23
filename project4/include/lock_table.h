@@ -34,14 +34,16 @@ typedef struct lock_table_t
 pthread_mutex_t lock_table_latch;
 lock_table_t lock_table;
 
+/* lock table API */
+lock_t* lock_acquire(int table_id, int64_t key);
+int lock_release(lock_t* lock_obj);
+
+// functions for maintaining a lock table
 int hash(int table_id, int64_t key);
 bucket * hash_find(int table_id, int64_t key);
 bucket * hash_insert(int table_id, int64_t key);
 
-/* APIs for lock table */
 int init_lock_table();
 lock_t * create_lock(bucket * sentinel);
-lock_t* lock_acquire(int table_id, int64_t key);
-int lock_release(lock_t* lock_obj);
 
 #endif /* __LOCK_TABLE_H__ */

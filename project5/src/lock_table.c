@@ -117,8 +117,8 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	sentinel->tail = lock_obj;
 	pred = lock_obj->prev;
 
-
 	// original code that committed before deadline. are these right?
+	// right in case : when one transaction can execute only one opration(db_find() or db_update()) to one record
 	// if(pred->status == WAITING)
 	// {
 	// 	lock_obj->status = WAITING;
@@ -131,7 +131,7 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// 	else
 	// 	{
-	// 		if(pred->trx_id == lock_obj->trx_id)
+	// 		if(pred->trx_id == lock_obj->trx_id) // ?
 	// 		{
 	// 			lock_obj->status = WORKING;
 	// 		}
@@ -142,7 +142,7 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// 	}
 	// }
 
-	// // when one transaction can execute only one opration(db_find() or db_update()) to one record
+	// when one transaction can execute only one opration(db_find() or db_update()) to one record
 	// if(pred->status == WAITING)
 	// {
 	// 	lock_obj->status = WAITING;
@@ -160,6 +160,7 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	// }
 
 	// when one transaction can execute two or more operations(db_find() or db_update()) to one record
+	// but, does this situation really exist?
 	if(pred->status == WAITING)
 	{
 		lock_obj->status = WAITING;
@@ -655,16 +656,11 @@ void uncheck_trx_nodes()
 		node = node->next;
 	}
 }
-
 bool is_deadlock(lock_t * suspect_lock)
 {
-	int start_trx_id;
-	int trx_id;
-	int checked_trx_num;
-	int total_trx_num;
+	int start_trx_id, trx_id, checked_trx_num, total_trx_num;
 	trx_node * node;
-	lock_t * lock;
-	lock_t * prev_lock;
+	lock_t *lock, *prev_lock;
 
 	checked_trx_num = 0;
 	total_trx_num = trx_table.trx_num;
@@ -673,28 +669,27 @@ bool is_deadlock(lock_t * suspect_lock)
 	init_wait_queue();
 	prev_lock = suspect_lock->prev;
 	
-	// insert transactions to queue which start_trx waits for
+	// insert transactions to queue which a transaction causing a deadlock waits for
 	while(prev_lock != NULL)
 	{	
 		if(prev_lock->trx_id != start_trx_id)
 		{
-			// printf("enqueue trx %d\n", prev_lock->trx_id);
 			w_enqueue(prev_lock->trx_id);
 		}
 		prev_lock = prev_lock->prev;
 	}
 
-	// printf("lock object of trx %d, let's traverse wait-for graph!\n", suspect_lock->trx_id);
 	while((trx_id = w_dequeue()) != -1)
 	{
-		// if checked all transaction except suspect transaction 
+		// if checked all transactions : no deadlock exists
 		if(checked_trx_num == total_trx_num - 1)
 		{
 			break;
 		}
 
 		node = find_trx_node(trx_id);
-
+                
+        // do not need to check transaction twice which was inserted to queue before 
 		if(node->checked == true)
 		{
 			continue;
@@ -712,9 +707,10 @@ bool is_deadlock(lock_t * suspect_lock)
 
 				while(prev_lock != NULL)
 				{
+                    // if transaction which is about to be inserted to queue is same as the start transaction : deadlock exists
+                    // and initialize the array which is similar to visited array in BFS
 					if(prev_lock->trx_id == start_trx_id)
 					{
-						// printf("deadlock detected!!!!!\n");
 						uncheck_trx_nodes();
 						destroy_wait_queue();
 						return true;
@@ -729,10 +725,9 @@ bool is_deadlock(lock_t * suspect_lock)
 			lock = lock->trx_next;
 		}
 	}
-	// printf("deadlock not detected,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,\n");
-
+        
+    // initialize the array which is similar to visited array in BFS
 	uncheck_trx_nodes();
 
 	return false;
 }
-

@@ -212,6 +212,8 @@ void insert_into_record_lock_list(lt_bucket * sentinel, lock_t * lock_obj)
 	}
 	else if(pred->status == WORKING)
 	{
+		//                                            pred   lockObj
+		// this is problematic. e.g., t3(S) - t2(S) - t1(S) - t1(X)
 		if(pred->trx_id == lock_obj->trx_id)
 		{
 			lock_obj->status = WORKING;	
@@ -249,10 +251,10 @@ int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t **
 
 	b = lock_table_find(table_id, key);
 
-	// if bucket doesn't exist in hash table
+	// if bucket doesn't exist in hash table,
+	// make a new bucket and add to hash table
 	if(b == NULL)
 	{
-		// make a new bucket and add to hash table
 		b = lock_table_insert(table_id, key);
 	}
 
@@ -298,8 +300,6 @@ void lock_wait(lock_t * lock_obj)
 	node = find_trx_node(lock_obj->trx_id);
 	release_trx_manager_latch();
 	release_lock_table_latch();
-	// printf("trx %d's lock attached to key %ld in table %d goes to sleep for acquiring a lock,,,,,,,\n",
-		// lock_obj->trx_id, lock_obj->sentinel->key, lock_obj->sentinel->table_id);
 
 	pthread_cond_wait(&(lock_obj->cond), &(node->trx_latch));
 	

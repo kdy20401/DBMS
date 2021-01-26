@@ -37,6 +37,11 @@ trx_table_t trx_table;
 
 int global_trx_id;
 
+/* transaction APIs */
+int trx_begin();
+int trx_commit(int trx_id);
+int trx_abort(int trx_id);
+
 void acquire_trx_manager_latch();
 void release_trx_manager_latch();
 void acquire_trx_latch(int trx_id);
@@ -53,15 +58,7 @@ void insert_into_rollback_list(int table_id, int64_t key, char * org_value, int 
 void rollback_db_update(int table_id, int64_t key, char * org_value);
 void rollback(trx_node * node);
 
-/* transaction APIs */
-int trx_begin();
-int trx_commit(int trx_id);
-int trx_abort(int trx_id);
-
-
-
 // recovery
-
 // begin, commit, rollback log
 typedef struct bcrlog
 {

@@ -573,11 +573,10 @@ int search_recordIndex(leaf_page_t * leaf, int64_t key)
 }
 
 // while traversing B+ tree index to find leaf page,
-// protect buffer(e.g., LRU list) by acquiring buffer latch - page latch
+// protect buffer(e.g., LRU list) by acquiring buffer latch -> page latch
 // and releasing buffer latch - page latch
 pagenum_t find_leaf_page(int table_id, int64_t key)
 {   
-    // printf("finding a leaf page,,,\n");
     header_page_t header;
     internal_page_t root;
     pagenum_t root_page_num, leaf_page_num, next;
@@ -590,7 +589,6 @@ pagenum_t find_leaf_page(int table_id, int64_t key)
     // there is no root
     if(header.root_page_num == 0)
     {
-        // printf("there is no root\n");
         return -1;
     }
 
@@ -656,7 +654,6 @@ int nt_db_find(int table_id, int64_t key, char * ret_val)
 
 int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 {
-    // printf("trx %d tries to find key %ld in table %d\n", trx_id, key, table_id);
     pagenum_t leaf_page_num;
     leaf_page_t leaf;
     lock_t * record_lock;
@@ -666,10 +663,10 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     // find a leaf page number containing the target record
     leaf_page_num = find_leaf_page(table_id, key);
 
-    // there is no root page
+    // there is no root page.
+    // transaction who call this function must be aborted
     if(leaf_page_num == -1)
     {
-        // transaction who call this function must be aborted
         return -1;
     }
 
@@ -678,16 +675,16 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
     fptr = buf_read_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
     i = search_recordIndex(&leaf, key);
 
-    // there is no record with key
+    // there is no record with key.
+    // transaction who call this function must be aborted
     if(i == -1)
     {
-        // transaction who call this function must be aborted
         release_page_latch(fptr);
         return -1;
     }
 
     // after identifying the existence of target record, try to acquire a record lock holding a page latch
-    // because in general case, the record can be moved to another page by structure modification
+    // because in general case, the record can be moved to another page or deleted by structure modification
     ret = lock_acquire(table_id, key, trx_id, SHARED, &record_lock);
 
     if(ret == ACQUIRED)
@@ -695,16 +692,6 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
         // leaf page was already loaded to memory to check the existence of target record.
         // in this process, page latch is acquired. after, the record lock is directly acquired
         // without waiting. so just use that leaf page because the target record is still in that page.
-
-    	// if(record_lock->lock_mode == SHARED)
-		// {
-			// printf("trx %d acquired a S lock!!\n", trx_id);
-		// }
-		// else
-		// {
-			// printf("trx %d acquired a X lock!!\n", trx_id);
-		// }
-        // release_trx_manager_latch(); // for db_update(), didn't release trx_manager_latch 
         strcpy(ret_val, leaf.records[i].value);
         release_page_latch(fptr);
     }
@@ -715,28 +702,17 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
 	    // rollback record changes. if, another thread2 exists who already acquired buffer latch
 	    // and is waiting for acquiring the page latch (acquired by thread1),
 	    // thread1 cannot acquire a buffer latch because thread2 is holding it.
-	    // so must release page latch before trx_abort()
+	    // so must release page latch before abort
         release_page_latch(fptr);
         trx_abort(trx_id);
-        // printf("trx %d's find() is aborted at key %ld in table %d\n", trx_id, key, table_id);
+
         return -1;
     }
     else if(ret == NEED_TO_WAIT)
     {
-        // printf("trx %d fails to acquire a lock,, get ready to sleep,,\n", record_lock->trx_id);
-
         // after acquired transaction latch, release all latches and go to sleep
         release_page_latch(fptr);
         lock_wait(record_lock);
-
-	    // if(record_lock->lock_mode == SHARED)
-	    // {
-	    	// printf("trx %d wakes up and acquired a S lock!\n", trx_id);
-	    // }
-	    // else
-	    // {
-	    	// printf("trx %d wakes up and acquired a X lock!\n", trx_id);
-	    // }
 
         // after wakes up and acquires a record lock simultaneously,
         // find a page again because the page might have been evicted from buffer pool.
@@ -748,14 +724,12 @@ int db_find(int table_id, int64_t key, char * ret_val, int trx_id)
         release_page_latch(fptr);
     }
 
-    // printf("trx %d find success at key %ld, value %s in table %d\n", trx_id, key, ret_val, table_id);
     return 0;
 }
 
 
 int db_update(int table_id, int64_t key, char * values, int trx_id)
 {
-    // printf("trx %d tries to update key %ld in table %d\n", trx_id, key, table_id);
     pagenum_t leaf_page_num;
     leaf_page_t leaf;
     frame * fptr;
@@ -767,9 +741,9 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     // find a leaf page number containing the target record
     leaf_page_num = find_leaf_page(table_id, key);
 
+    // transaction who call this function must be aborted
     if(leaf_page_num == -1)
     {
-        // transaction who call this function must be aborted
         return -1;
     }
 
@@ -790,7 +764,6 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 
     if(ret == ACQUIRED)
     {
-
         acquire_trx_manager_latch();
         node = find_trx_node(trx_id);
         release_trx_manager_latch();
@@ -818,16 +791,6 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         // leaf page was already loaded to memory to check the existence of target record.
         // in this process, page latch is acquired. after, the record lock is directly acquired
         // without waiting. so just use that leaf page because the target record is still in that page.
-
-        // if(record_lock->lock_mode == SHARED)
-		// {
-			// printf("trx %d acquired a S lock!!\n", trx_id);
-		// }
-		// else if(record_lock->lock_mode == EXCLUSIVE)
-		// {
-			// printf("trx %d acquired a X lock!!\n", trx_id);
-		// }
-
         strcpy(org_value, leaf.records[i].value); 
         strcpy(leaf.records[i].value, values);
         buf_write_page_trx(table_id, leaf_page_num, (page_t *)&leaf);
@@ -840,28 +803,17 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
 	    // rollback record changes. if, another thread2 exists who already acquired buffer latch
 	    // and is waiting for acquiring the page latch (acquired by thread1),
 	    // thread1 cannot acquire a buffer latch because thread2 is holding it.
-	    // so must release page latch before trx_abort()
+	    // so must release page latch before abort
         release_page_latch(fptr);
         trx_abort(trx_id);
-        // printf("trx %d's update() is aborted at key %ld in table %d\n", trx_id, key, table_id);
+
         return -1;
     }
     else if(ret == NEED_TO_WAIT)
     {
-        // printf("trx %d fails to acquire a lock,, get ready to sleep,,\n", record_lock->trx_id);
-
         // after acquired transaction latch, release all latches and go to sleep
         release_page_latch(fptr);
         lock_wait(record_lock);
-
-        // if(record_lock->lock_mode == SHARED)
-	    // {
-	    	// printf("trx %d wakes up and acquired a S lock!\n", trx_id);
-	    // }
-	    // else if(record_lock->lock_mode == EXCLUSIVE)
-	    // {
-	    	// printf("trx %d wakes up and acquired a X lock!\n", trx_id);
-	    // }
 
         // after wakes up and acquires a record lock simultaneously,
         // find a page again because the page might have been evicted from buffer pool.
@@ -874,6 +826,7 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
         node = find_trx_node(trx_id);
         release_trx_manager_latch();
 
+        // write update log ahead
         acquire_log_buffer_latch();
 
         updateLog_t updateLog;
@@ -904,7 +857,6 @@ int db_update(int table_id, int64_t key, char * values, int trx_id)
     insert_into_rollback_list(table_id, key, org_value, trx_id);
     release_trx_manager_latch();
 
-    // printf("trx %d update() success at key %ld value to %s in table %d\n", trx_id, key, values, table_id);
     return 0;
 }
 

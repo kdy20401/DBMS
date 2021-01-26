@@ -11,32 +11,17 @@ typedef struct page
 }page;
 page * p_queue;
 
-void show_leaf_page_keys(int table_id);
-void show_free_page_list(int table_id);
+/* operation API with transaction */
+int db_find(int table_id, int64_t key, char * ret_val, int trx_id);
+int db_update(int table_id, int64_t key, char * values, int trx_id);
 
-void enqueue(pagenum_t page_num);
-pagenum_t dequeue();
-int path_to_root(int table_id, pagenum_t pagenum);
-void print_tree(int table_id);
-
-// table initialization
-void init_table(int table_id);
-int open_table(char * pathname);
-int get_table_id(char * pathname);
-int close_table(int table_id);
-
-// original find doesn't offer transaction
-pagenum_t nt_find_leaf_page(int table_id, int64_t key);
-int nt_db_find(int table_id, int64_t key, char * ret_val);
-
-// transaction for db_find and db_update
+// find
 int search_routingIndex(internal_page_t * internal, int64_t key);
 int search_recordIndex(leaf_page_t * leaf, int64_t key);
 pagenum_t find_leaf_page(int table_id, int64_t key);
-pagenum_t find_leaf_page1(int table_id, int64_t key);
-int db_find(int table_id, int64_t key, char * ret_val, int trx_id);
+
+// update
 void insert_into_rollback_list(int table_id, int64_t key, char * org_value, int trx_id);
-int db_update(int table_id, int64_t key, char * values, int trx_id);
 
 // insert
 int get_left_index(int table_id, pagenum_t left_page_num);
@@ -57,5 +42,25 @@ void adjust_root_page(int table_id, header_page_t * header, pagenum_t root_page_
 pagenum_t remove_entry_from_page(int table_id, pagenum_t n, int64_t key);
 void delete_entry(int table_id, pagenum_t n, int64_t key); 
 int db_delete(int table_id, int64_t key);
+
+// original functinos for db_find() that do not offer transaction
+pagenum_t nt_find_leaf_page(int table_id, int64_t key);
+int nt_db_find(int table_id, int64_t key, char * ret_val);
+
+// util functions
+void show_leaf_page_keys(int table_id);
+void show_free_page_list(int table_id);
+
+// functions for printing disk based b+ tree
+void enqueue(pagenum_t page_num);
+pagenum_t dequeue();
+int path_to_root(int table_id, pagenum_t pagenum);
+void print_tree(int table_id);
+
+// functions for creating and removing table
+void init_table(int table_id);
+int open_table(char * pathname);
+int get_table_id(char * pathname);
+int close_table(int table_id);
 
 #endif
